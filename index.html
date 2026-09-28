@@ -6,15 +6,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-title" content="计划本">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180-v2.png">
+<link rel="icon" href="icon-192-v2.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>计划本</title>
 <style>
 :root{
+  color-scheme:light dark;
   --bg:#f6f5f2; --card:#ffffff; --text:#1c1c1e; --sub:#8a8a8e; --line:#e6e4df;
   --accent:#2f6fed; --done:#b5b5ba;
   --c0:#8a8a8e; --c1:#2f6fed; --c2:#e0803a; --c3:#2fa36b;
@@ -187,7 +189,7 @@ li.done .txt{color:var(--done);text-decoration:line-through}
 <script>
 (() => {
 const KEY = 'planner-v1';
-const VERSION = '2026.09.28-2';
+const VERSION = '2026.09.29-1';
 const CATS = [
   {name:'默认', color:'var(--c0)'},
   {name:'工作', color:'var(--c1)'},

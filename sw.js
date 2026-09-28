@@ -1,5 +1,5 @@
-const C = 'planner-v2';
-const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png'];
+const C = 'planner-v3';
+const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180-v2.png', 'icon-192-v2.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))); self.clients.claim(); });
 // 先用网络（保证拿到新版），离线时用缓存
