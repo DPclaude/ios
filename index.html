@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="计划本">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>计划本</title>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#ffffff; --text:#1c1c1e; --sub:#8a8a8e; --line:#e6e4df;
+  --accent:#2f6fed; --done:#b5b5ba;
+  --c0:#8a8a8e; --c1:#2f6fed; --c2:#e0803a; --c3:#2fa36b;
+  --safe-b:env(safe-area-inset-bottom); --safe-t:env(safe-area-inset-top);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#161616; --card:#232325; --text:#f2f2f4; --sub:#8e8e93; --line:#333336;
+    --accent:#5b8ff9; --done:#5c5c60; --c1:#5b8ff9; --c2:#f0994f; --c3:#44c486; }
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.45 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans",sans-serif;}
+body{min-height:100vh;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+header{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(var(--safe-t) + 14px) 18px 10px;}
+.top{display:flex;align-items:center;justify-content:space-between}
+.date{font-size:28px;font-weight:700;letter-spacing:.5px}
+.week{color:var(--sub);font-size:15px;margin-top:2px}
+.nav{display:flex;gap:6px;align-items:center}
+.nav button{width:38px;height:38px;border-radius:12px;background:var(--card);
+  font-size:18px;display:grid;place-items:center;border:1px solid var(--line)}
+.nav .today{width:auto;padding:0 12px;font-size:14px;color:var(--accent);font-weight:600}
+.nav .today[hidden]{display:none}
+.progress{height:4px;background:var(--line);border-radius:4px;margin-top:12px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+
+main{padding:4px 14px calc(110px + var(--safe-b))}
+ul{list-style:none;margin:0;padding:0}
+li.task{display:flex;align-items:flex-start;gap:12px;background:var(--card);
+  border-radius:14px;padding:13px 14px;margin-bottom:8px;border:1px solid var(--line)}
+.chk{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--cat,var(--c0));
+  display:grid;place-items:center;margin-top:0}
+.chk svg{width:14px;height:14px;opacity:0}
+li.done .chk{background:var(--cat,var(--c0))}
+li.done .chk svg{opacity:1}
+.body{flex:1;min-width:0}
+.txt{word-break:break-word}
+li.done .txt{color:var(--done);text-decoration:line-through}
+.meta{font-size:12px;color:var(--sub);margin-top:2px}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;
+  background:color-mix(in srgb,var(--c2) 15%,transparent);color:var(--c2);margin-right:6px}
+.empty{text-align:center;color:var(--sub);padding:50px 0 20px;font-size:15px}
+.sec{display:flex;align-items:center;justify-content:space-between;color:var(--sub);
+  font-size:13px;padding:14px 4px 8px}
+.sec button{color:var(--sub);font-size:13px}
+
+.note{width:100%;min-height:74px;resize:none;border:1px solid var(--line);border-radius:14px;
+  background:var(--card);color:var(--text);padding:12px 14px;font:inherit;font-size:15px;outline:none}
+.note::placeholder{color:var(--sub)}
+
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bg);
+  border-top:1px solid var(--line);padding:10px 12px calc(10px + var(--safe-b));
+  display:flex;gap:8px;align-items:center}
+.catbtn{flex:none;width:40px;height:40px;border-radius:12px;background:var(--card);
+  border:1px solid var(--line);display:grid;place-items:center}
+.catbtn span{width:14px;height:14px;border-radius:50%;background:var(--cat)}
+#input{flex:1;min-width:0;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+  color:var(--text);padding:0 12px;font:inherit;font-size:16px;outline:none}
+#input:focus{border-color:var(--accent)}
+.add{flex:none;height:40px;padding:0 14px;border-radius:12px;background:var(--accent);
+  color:#fff;font-weight:600}
+.menu{flex:none;width:40px;height:40px;border-radius:12px;font-size:20px;color:var(--sub)}
+
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;display:none}
+.mask.show{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;background:var(--card);
+  border-radius:18px 18px 0 0;padding:18px 16px calc(16px + var(--safe-b));
+  transform:translateY(105%);transition:transform .22s ease}
+.sheet.show{transform:none}
+.sheet h3{margin:0 0 12px;font-size:16px}
+.sheet textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:12px;
+  background:var(--bg);color:var(--text);padding:10px 12px;font:inherit;font-size:16px;outline:none;resize:none}
+.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.row button,.row label{flex:1;min-width:30%;height:44px;border-radius:12px;background:var(--bg);
+  border:1px solid var(--line);font-size:15px;display:grid;place-items:center}
+.row .primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row .danger{color:#e5484d}
+.cats{display:flex;gap:8px;margin-top:12px}
+.cats button{flex:1;height:38px;border-radius:10px;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px}
+.cats button i{width:10px;height:10px;border-radius:50%;background:var(--cat)}
+.cats button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.hint{font-size:12px;color:var(--sub);margin-top:10px;line-height:1.6}
+.toast{position:fixed;left:50%;bottom:calc(80px + var(--safe-b));transform:translateX(-50%);
+  background:var(--text);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:14px;
+  opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}
+.toast.show{opacity:1}
+.update{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index:30;
+  background:var(--accent);color:#fff;border-radius:14px;padding:12px 16px;font-weight:600;
+  display:none;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.update.show{display:flex}
+.ver{font-size:12px;color:var(--sub);text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <div class="date" id="dateTitle"></div>
+      <div class="week" id="dateSub"></div>
+    </div>
+    <div class="nav">
+      <button class="today" id="goToday" hidden>今天</button>
+      <button id="prev" aria-label="前一天">‹</button>
+      <button id="next" aria-label="后一天">›</button>
+    </div>
+  </div>
+  <div class="progress"><i id="prog"></i></div>
+</header>
+
+<main id="main">
+  <ul id="list"></ul>
+  <div class="empty" id="empty">今天还没有计划<br>在下面输入第一件事吧</div>
+  <div class="sec" id="doneHead" hidden>
+    <span id="doneCount"></span>
+    <button id="toggleDone"></button>
+  </div>
+  <ul id="doneList"></ul>
+  <div class="sec"><span>备忘</span></div>
+  <textarea class="note" id="note" placeholder="今天的想法、要记住的事…"></textarea>
+</main>
+
+<div class="bar">
+  <button class="catbtn" id="catBtn" aria-label="分类"><span></span></button>
+  <input id="input" placeholder="添加任务，回车保存" enterkeyhint="done" autocomplete="off">
+  <button class="add" id="addBtn">添加</button>
+  <button class="menu" id="menuBtn" aria-label="设置">⋯</button>
+</div>
+
+<div class="mask" id="mask"></div>
+
+<div class="sheet" id="editSheet">
+  <h3>编辑任务</h3>
+  <textarea id="editText"></textarea>
+  <div class="cats" id="editCats"></div>
+  <div class="row">
+    <button id="toTop">置顶</button>
+    <button id="toTomorrow">移到明天</button>
+    <button id="repeatBtn">每天重复</button>
+  </div>
+  <div class="row">
+    <button class="danger" id="delBtn">删除</button>
+    <button class="primary" id="saveBtn">保存</button>
+  </div>
+</div>
+
+<div class="sheet" id="menuSheet">
+  <h3>设置与备份</h3>
+  <div class="row">
+    <button id="exportBtn">导出备份</button>
+    <label>导入备份<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+  </div>
+  <div class="hint">
+    数据只保存在这台手机上。建议每周导出一次备份（可存到"文件"或发给自己）。<br>
+    小技巧：左右滑动可以切换日期；没做完的任务会自动顺延到今天。
+  </div>
+  <div class="row">
+    <button id="checkUpdate">检查更新</button>
+    <button id="closeMenu">关闭</button>
+  </div>
+  <div class="ver" id="verText"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<button class="update" id="updateBar"><span>有新版本 ✨</span><span>点击更新</span></button>
+
+<script>
+(() => {
+const KEY = 'planner-v1';
+const VERSION = '2026.09.28-2';
+const CATS = [
+  {name:'默认', color:'var(--c0)'},
+  {name:'工作', color:'var(--c1)'},
+  {name:'私事', color:'var(--c2)'},
+  {name:'学习', color:'var(--c3)'},
+];
+const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
+const $ = id => document.getElementById(id);
+
+// ---------- data ----------
+let db = load();
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if (d && Array.isArray(d.tasks)) return {tasks:d.tasks, notes:d.notes||{}, repeats:d.repeats||[], repeatDone:d.repeatDone||{}};
+  }catch(e){}
+  return {tasks:[], notes:{}, repeats:[], repeatDone:{}};
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ toast('保存失败，请导出备份'); }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function ymd(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function parse(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function shift(s,n){ const d=parse(s); d.setDate(d.getDate()+n); return ymd(d); }
+const todayStr = () => ymd(new Date());
+
+// 未完成的旧任务顺延到今天
+function rollover(){
+  const t = todayStr(); let changed=false;
+  db.tasks.forEach(k => {
+    if (!k.done && k.date < t){ k.date = t; k.rolled = true; changed = true; }
+  });
+  // 清理90天前已完成的重复记录
+  const cutoff = shift(t,-90);
+  Object.keys(db.repeatDone).forEach(d => { if (d < cutoff){ delete db.repeatDone[d]; changed=true; } });
+  if (changed) save();
+}
+
+// 每天重复的任务：按日期生成“虚拟任务”，完成状态存在 repeatDone
+function repeatItems(date){
+  const doneSet = db.repeatDone[date] || [];
+  return db.repeats
+    .filter(r => r.from <= date)
+    .map(r => ({id:'r:'+r.id, rid:r.id, text:r.text, cat:r.cat, date, done:doneSet.includes(r.id), repeat:true, order:-1}));
+}
+
+// ---------- state ----------
+let cur = todayStr();
+let newCat = 0;
+let showDone = true;
+let editing = null;
+let editCat = 0;
+
+// ---------- render ----------
+function render(){
+  const d = parse(cur), t = todayStr();
+  const rel = cur===t ? '今天' : cur===shift(t,1) ? '明天' : cur===shift(t,-1) ? '昨天' : '';
+  $('dateTitle').textContent = (d.getMonth()+1)+'月'+d.getDate()+'日';
+  $('dateSub').textContent = WEEK[d.getDay()] + (rel ? ' · '+rel : '') + (d.getFullYear()!==new Date().getFullYear() ? ' · '+d.getFullYear() : '');
+  $('goToday').hidden = cur===t;
+
+  const items = repeatItems(cur).concat(db.tasks.filter(k => k.date===cur));
+  const open = items.filter(k=>!k.done).sort((a,b)=>(a.order-b.order));
+  const done = items.filter(k=>k.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+
+  $('list').innerHTML = ''; $('doneList').innerHTML = '';
+  open.forEach(k => $('list').appendChild(item(k)));
+  if (showDone) done.forEach(k => $('doneList').appendChild(item(k)));
+
+  $('empty').hidden = items.length>0;
+  $('doneHead').hidden = done.length===0;
+  $('doneCount').textContent = '已完成 '+done.length;
+  $('toggleDone').textContent = showDone ? '收起' : '展开';
+  $('prog').style.width = items.length ? (done.length/items.length*100)+'%' : '0';
+
+  $('note').value = db.notes[cur] || '';
+  $('catBtn').style.setProperty('--cat', CATS[newCat].color);
+}
+
+function item(k){
+  const li = document.createElement('li');
+  li.className = 'task' + (k.done?' done':'');
+  li.style.setProperty('--cat', CATS[k.cat||0].color);
+  const meta = [];
+  if (k.repeat) meta.push('每天');
+  if (k.cat) meta.push(CATS[k.cat].name);
+  li.innerHTML = `
+    <button class="chk" aria-label="完成"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <div class="body">
+      <div class="txt">${k.rolled && !k.done ? '<span class="tag">顺延</span>':''}${esc(k.text)}</div>
+      ${meta.length? `<div class="meta">${meta.join(' · ')}</div>`:''}
+    </div>`;
+  li.querySelector('.chk').onclick = e => { e.stopPropagation(); toggle(k); };
+  li.querySelector('.body').onclick = () => openEdit(k);
+  return li;
+}
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- actions ----------
+function add(){
+  const text = $('input').value.trim();
+  if (!text) return;
+  const orders = db.tasks.filter(k=>k.date===cur).map(k=>k.order);
+  db.tasks.push({id:uid(), text, date:cur, done:false, cat:newCat, order:(orders.length?Math.max(...orders):0)+1});
+  $('input').value = '';
+  save(); render();
+}
+function toggle(k){
+  if (k.repeat){
+    const arr = db.repeatDone[cur] || (db.repeatDone[cur]=[]);
+    const i = arr.indexOf(k.rid);
+    i>=0 ? arr.splice(i,1) : arr.push(k.rid);
+  } else {
+    const t = db.tasks.find(x=>x.id===k.id); if (!t) return;
+    t.done = !t.done; t.doneAt = t.done ? Date.now() : 0;
+    if (t.done) t.rolled = false;
+  }
+  if (navigator.vibrate) navigator.vibrate(10);
+  save(); render();
+}
+
+// ---------- edit sheet ----------
+function openEdit(k){
+  editing = k; editCat = k.cat||0;
+  $('editText').value = k.text;
+  $('toTop').hidden = !!k.repeat;
+  $('toTomorrow').hidden = !!k.repeat;
+  $('repeatBtn').textContent = k.repeat ? '取消每天重复' : '设为每天重复';
+  drawEditCats();
+  open('editSheet');
+}
+function drawEditCats(){
+  $('editCats').innerHTML = '';
+  CATS.forEach((c,i) => {
+    const b = document.createElement('button');
+    b.className = i===editCat ? 'on' : '';
+    b.style.setProperty('--cat', c.color);
+    b.innerHTML = `<i></i>${c.name}`;
+    b.onclick = () => { editCat = i; drawEditCats(); };
+    $('editCats').appendChild(b);
+  });
+}
+function findEditing(){
+  if (!editing) return null;
+  return editing.repeat ? db.repeats.find(r=>r.id===editing.rid) : db.tasks.find(x=>x.id===editing.id);
+}
+$('saveBtn').onclick = () => {
+  const t = findEditing(); const text = $('editText').value.trim();
+  if (t && text){ t.text = text; t.cat = editCat; save(); }
+  close(); render();
+};
+$('delBtn').onclick = () => {
+  if (!editing) return;
+  if (editing.repeat){
+    if (!confirm('删除这个每天重复的任务？')) return;
+    db.repeats = db.repeats.filter(r=>r.id!==editing.rid);
+  } else db.tasks = db.tasks.filter(x=>x.id!==editing.id);
+  save(); close(); render(); toast('已删除');
+};
+$('toTop').onclick = () => {
+  const t = findEditing(); if (!t) return;
+  const orders = db.tasks.filter(k=>k.date===cur).map(k=>k.order);
+  t.order = Math.min(...orders) - 1; save(); close(); render();
+};
+$('toTomorrow').onclick = () => {
+  const t = findEditing(); if (!t) return;
+  t.date = shift(cur,1); t.rolled=false; t.done=false; save(); close(); render(); toast('已移到明天');
+};
+$('repeatBtn').onclick = () => {
+  const t = findEditing(); if (!t) return;
+  if (editing.repeat){
+    // 取消重复：从今天起不再出现，今天保留一个普通任务
+    db.repeats = db.repeats.filter(r=>r.id!==editing.rid);
+    db.tasks.push({id:uid(), text:t.text, date:cur, done:editing.done, doneAt:editing.done?Date.now():0, cat:t.cat, order:0});
+    toast('已取消每天重复');
+  } else {
+    const r = {id:uid(), text:$('editText').value.trim()||t.text, cat:editCat, from:cur};
+    db.repeats.push(r);
+    if (t.done) (db.repeatDone[cur] || (db.repeatDone[cur]=[])).push(r.id);
+    db.tasks = db.tasks.filter(x=>x.id!==t.id);
+    toast('已设为每天重复');
+  }
+  save(); close(); render();
+};
+
+// ---------- menu / backup ----------
+$('menuBtn').onclick = () => open('menuSheet');
+$('closeMenu').onclick = close;
+$('exportBtn').onclick = async () => {
+  const name = '计划本备份-'+todayStr()+'.json';
+  const blob = new Blob([JSON.stringify(db,null,1)], {type:'application/json'});
+  const file = new File([blob], name, {type:'application/json'});
+  if (navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:name}); return; }catch(e){ if (e.name==='AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+};
+$('importFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if (!Array.isArray(d.tasks)) throw 0;
+      if (!confirm('导入会覆盖现在的数据，确定吗？')) return;
+      db = {tasks:d.tasks, notes:d.notes||{}, repeats:d.repeats||[], repeatDone:d.repeatDone||{}};
+      save(); rollover(); close(); render(); toast('导入成功');
+    }catch(err){ toast('文件格式不对'); }
+    e.target.value = '';
+  };
+  r.readAsText(f);
+};
+
+// ---------- sheets ----------
+function open(id){ $('mask').classList.add('show'); $(id).classList.add('show'); }
+function close(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show')); $('mask').classList.remove('show'); editing=null; }
+$('mask').onclick = close;
+
+// ---------- misc ui ----------
+let tt;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }
+
+$('addBtn').onclick = () => { add(); $('input').focus(); };
+$('input').addEventListener('keydown', e => { if (e.key==='Enter' && !e.isComposing){ e.preventDefault(); add(); } });
+$('catBtn').onclick = () => { newCat = (newCat+1)%CATS.length; render(); toast('新任务分类：'+CATS[newCat].name); };
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('goToday').onclick = () => { cur = todayStr(); render(); };
+$('toggleDone').onclick = () => { showDone=!showDone; render(); };
+$('note').addEventListener('input', e => {
+  const v = e.target.value;
+  if (v.trim()) db.notes[cur]=v; else delete db.notes[cur];
+  save();
+});
+function go(n){ cur = shift(cur,n); render(); }
+
+// 左右滑动切换日期
+let sx=0, sy=0, st=0;
+$('main').addEventListener('touchstart', e => { const p=e.touches[0]; sx=p.clientX; sy=p.clientY; st=Date.now(); }, {passive:true});
+$('main').addEventListener('touchend', e => {
+  if (e.target.closest('textarea')) return;
+  const p=e.changedTouches[0], dx=p.clientX-sx, dy=p.clientY-sy;
+  if (Date.now()-st<600 && Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5) go(dx<0?1:-1);
+}, {passive:true});
+
+// 回到前台时：跨天自动切到今天并顺延
+let lastDay = todayStr();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState!=='visible') return;
+  const t = todayStr();
+  if (t!==lastDay){ if (cur===lastDay) cur=t; lastDay=t; }
+  rollover(); render();
+});
+
+// ---------- 一键更新 ----------
+async function checkUpdate(manual){
+  try{
+    const r = await fetch('version.json?t='+Date.now(), {cache:'no-store'});
+    const v = (await r.json()).version;
+    if (v && v !== VERSION){ $('updateBar').classList.add('show'); if (manual) close(); }
+    else if (manual) toast('已经是最新版本');
+  }catch(e){ if (manual) toast('没有网络，稍后再试'); }
+}
+$('updateBar').onclick = async () => {
+  $('updateBar').querySelector('span').textContent = '更新中…';
+  try{
+    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+    if (navigator.serviceWorker){ const rs = await navigator.serviceWorker.getRegistrations(); for (const x of rs) await x.update(); }
+  }catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now());
+};
+$('checkUpdate').onclick = () => checkUpdate(true);
+$('verText').textContent = '版本 ' + VERSION;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState==='visible') checkUpdate(false); });
+checkUpdate(false);
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+
+rollover(); render();
+})();
+</script>
+</body>
+</html>
