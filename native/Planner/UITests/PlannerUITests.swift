@@ -1,6 +1,29 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    func testPerPlanReminderPersistsInEditor() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]
+        app.launch()
+        XCTAssertTrue(app.buttons["addTask"].waitForExistence(timeout: 10))
+        app.buttons["addTask"].tap()
+        let field = app.textViews["taskText"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("提醒测试")
+        dismissKeyboardIntroduction(in: app)
+        if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
+        let reminder = app.switches["reminderToggle"]
+        for _ in 0..<4 where !reminder.isHittable { app.swipeUp() }
+        XCTAssertTrue(reminder.waitForExistence(timeout: 3))
+        guard reminder.exists else { return }
+        reminder.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(reminder.value as? String, "1")
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.lifetime = .keepAlways; add(shot)
+        app.buttons["saveTask"].tap()
+        XCTAssertTrue(app.buttons["edit-提醒测试"].waitForExistence(timeout: 5))
+        app.buttons["edit-提醒测试"].tap()
+        for _ in 0..<4 where !reminder.isHittable { app.swipeUp() }
+        XCTAssertEqual(reminder.value as? String, "1")
+    }
     func testSliceCompletesAndUndoRestoresPlan() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--reset-data"]
