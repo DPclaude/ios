@@ -57,8 +57,12 @@ struct PlannerDayView: View {
                     Button("今天") { model.select(day: .today()); Task { await model.refreshCalendar() } }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
-                        .accessibilityLabel("设置").accessibilityIdentifier("settings")
+                    HStack {
+                        Button { model.openSlice() } label: { Image(systemName: "scribble.variable") }
+                            .accessibilityLabel("全屏划掉今天的计划").accessibilityIdentifier("openSlice").disabled(!model.canEdit)
+                        Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                            .accessibilityLabel("设置").accessibilityIdentifier("settings")
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) { bottomBar }
@@ -66,6 +70,9 @@ struct PlannerDayView: View {
             .sheet(isPresented: $showAdd) { TaskEditor(model: model, item: nil) }
             .sheet(item: $editing) { TaskEditor(model: model, item: $0) }
             .sheet(isPresented: $showDate) { datePicker }
+            .fullScreenCover(isPresented: Binding(get: { model.isShowingSlice }, set: { model.isShowingSlice = $0 })) {
+                SliceCompletionView(model: model)
+            }
             .confirmationDialog("删除整条每日计划？", isPresented: Binding(get: { deletingRepeat != nil }, set: { if !$0 { deletingRepeat = nil } }), titleVisibility: .visible) {
                 Button("删除整条重复规则", role: .destructive) {
                     if let item = deletingRepeat { act(.delete(item.reference)) }; deletingRepeat = nil

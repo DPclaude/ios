@@ -15,13 +15,20 @@ import PlannerStore
             if ProcessInfo.processInfo.arguments.contains("--reset-data") { try? FileManager.default.removeItem(at: directory) }
         }
         #endif
-        _model = State(initialValue: PlannerViewModel(store: PlannerFileStore(directory: directory)))
+        let testing = ProcessInfo.processInfo.arguments.contains("--uitesting")
+        _model = State(initialValue: PlannerViewModel(store: PlannerFileStore(directory: directory), onPersist: { document in
+            testing ? nil : PlannerWidgetBridge.publish(document)
+        }))
     }
     var body: some Scene {
         WindowGroup {
             PlannerDayView(model: model)
                 .tint(.orange)
                 .task { await model.load() }
+                .onOpenURL { url in
+                    guard url.scheme == "planner", url.host == "slice" else { return }
+                    Task { await model.load(); await model.refreshCalendar(); model.openSlice() }
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await model.refreshCalendar() } }
                     else { backgroundSave.flush(model) }

@@ -28,6 +28,10 @@ struct ImportPreview: Identifiable, Sendable {
     private(set) var isLoaded = false
     private(set) var isBusy = false
     private(set) var undoAvailable = false
+    var isShowingSlice = false
+    private(set) var widgetMessage: String?
+    private var sliceUndo: TaskReference?
+    var sliceUndoAvailable: Bool { sliceUndo != nil }
     var canEdit: Bool { isLoaded && loadError == nil && !isBusy }
     @ObservationIgnored private let store: PlannerFileStore
     @ObservationIgnored private let now: () -> Date
@@ -41,9 +45,11 @@ struct ImportPreview: Identifiable, Sendable {
     @ObservationIgnored private var undoTask: Task<Void, Never>?
     @ObservationIgnored private var removed: RemovedItem?
     @ObservationIgnored private var undoDeadline = Date.distantPast
+    @ObservationIgnored private let onPersist: (PlannerDocument) -> String?
 
-    init(store: PlannerFileStore, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }) {
+    init(store: PlannerFileStore, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }) {
         self.store = store; self.now = now; self.timeZone = timeZone
+        self.onPersist = onPersist
         let today = Day.today(now: now(), timeZone: timeZone())
         selectedDay = today; previousToday = today
     }
@@ -57,6 +63,7 @@ struct ImportPreview: Identifiable, Sendable {
     private func apply(_ value: StoreSnapshot) {
         document = value.document; generation = value.generation; revision = value.revision
         queuedRevision = revision; saveState = .saved; rebuild()
+        widgetMessage = onPersist(value.document)
     }
     private func rebuild() { snapshot = document.snapshot(day: selectedDay, category: category) }
     func select(day: Day) {
@@ -123,7 +130,10 @@ struct ImportPreview: Identifiable, Sendable {
             await previous?.value
             do {
                 try await fileStore.save(pending)
-                if let self, self.generation == pending.generation, self.revision == pending.revision { self.saveState = .saved }
+                if let self, self.generation == pending.generation, self.revision == pending.revision {
+                    self.saveState = .saved
+                    self.widgetMessage = self.onPersist(pending.document)
+                }
             } catch {
                 if let self, self.generation == pending.generation, self.revision == pending.revision { self.saveState = .failed(error.localizedDescription) }
             }
@@ -145,6 +155,27 @@ struct ImportPreview: Identifiable, Sendable {
         if original != document { changed(); enqueueSave() } else { rebuild() }
     }
     func undoDelete() { undoDelete(now: now()) }
+    func openSlice() {
+        guard canEdit else { return }
+        select(day: .today(now: now(), timeZone: timeZone()))
+        select(category: nil)
+        isShowingSlice = true
+    }
+    @discardableResult func completeForSlice(_ reference: TaskReference) -> Bool {
+        guard canEdit, snapshot.open.contains(where: { $0.reference == reference }) else { return false }
+        perform(.toggle(reference)); sliceUndo = reference
+        return true
+    }
+    func undoSliceCompletion() {
+        guard canEdit, let reference = sliceUndo else { return }
+        let done: Bool
+        switch reference {
+        case .task(let id): done = document.tasks.first(where: { $0.id == id })?.done == true
+        case .repeating(_, let day): done = document.snapshot(day: day).completed.contains(where: { $0.reference == reference })
+        }
+        sliceUndo = nil
+        if done { perform(.toggle(reference)) }
+    }
     func undoDelete(now: Date) {
         guard canEdit, undoAvailable, now <= undoDeadline, let removed else { clearUndo(); return }
         document.restore(removed, today: Day.today(now: self.now(), timeZone: timeZone()), timeZone: timeZone())
@@ -165,7 +196,7 @@ struct ImportPreview: Identifiable, Sendable {
         await flush()
         if case .failed(let message) = saveState { throw BackupError.invalid("当前保存状态：\(message)") }
         let next = try await store.replace(with: preview.document)
-        clearUndo(); apply(next)
+        clearUndo(); sliceUndo = nil; apply(next)
         isBusy = false; await refreshCalendar()
     }
     func exportData() async throws -> Data { try await store.encodeBackup(document) }
@@ -174,7 +205,7 @@ struct ImportPreview: Identifiable, Sendable {
         isBusy = true; defer { isBusy = false }
         await flush()
         let restored = try await store.recoverPreviousImport()
-        clearUndo(); apply(restored); isLoaded = true; loadError = nil
+        clearUndo(); sliceUndo = nil; apply(restored); isLoaded = true; loadError = nil
         isBusy = false; await refreshCalendar()
     }
 }
