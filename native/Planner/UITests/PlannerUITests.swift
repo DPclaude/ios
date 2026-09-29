@@ -9,6 +9,10 @@ import XCTest
         app.buttons["addGoal"].tap()
         let title = app.textFields["goalTitle"]
         XCTAssertTrue(title.waitForExistence(timeout: 5)); title.tap(); title.typeText("完成我的作品")
+        dismissKeyboardIntroduction(in: app)
+        // The stage row is below the keyboard accessory bar while the title is focused.
+        XCTAssertTrue(app.buttons["goalDismissKeyboard"].waitForExistence(timeout: 5))
+        app.buttons["goalDismissKeyboard"].tap()
         app.textFields["stageTitle-0"].tap(); app.textFields["stageTitle-0"].typeText("完成初稿")
         dismissKeyboardIntroduction(in: app)
         if app.buttons["goalDismissKeyboard"].isHittable { app.buttons["goalDismissKeyboard"].tap() }
