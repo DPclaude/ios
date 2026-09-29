@@ -4,7 +4,7 @@ import PlannerCore
 struct TaskEditor: View {
     let model: PlannerViewModel
     let item: TaskItem?
-    private let originalDay: Day
+    @State private var originalDay: Day
     @Environment(\.dismiss) private var dismiss
     @State private var text: String
     @State private var category: Int
@@ -15,7 +15,8 @@ struct TaskEditor: View {
     @State private var confirmCancelRepeat = false
     @FocusState private var focused: Bool
     init(model: PlannerViewModel, item: TaskItem?) {
-        self.model = model; self.item = item; originalDay = model.selectedDay
+        self.model = model; self.item = item
+        _originalDay = State(initialValue: model.selectedDay)
         _text = State(initialValue: item?.text ?? "")
         _category = State(initialValue: item?.cat ?? model.category ?? 0)
         _date = State(initialValue: model.selectedDay.date())
