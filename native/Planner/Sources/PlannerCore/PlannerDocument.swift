@@ -5,14 +5,16 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
     public var notes: [String: String] = [:]
     public var repeats: [RepeatRule] = []
     public var repeatDone: [String: [String]] = [:]
+    public var goals: [PlannerGoal] = []
     public init() {}
-    enum CodingKeys: String, CodingKey { case tasks, notes, repeats, repeatDone }
+    enum CodingKeys: String, CodingKey { case tasks, notes, repeats, repeatDone, goals }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         tasks = try c.decode([PlannerTask].self, forKey: .tasks)
         notes = try c.decodeIfPresent([String: String].self, forKey: .notes) ?? [:]
         repeats = try c.decodeIfPresent([RepeatRule].self, forKey: .repeats) ?? []
         repeatDone = try c.decodeIfPresent([String: [String]].self, forKey: .repeatDone) ?? [:]
+        goals = try c.decodeIfPresent([PlannerGoal].self, forKey: .goals) ?? []
     }
     public func snapshot(day: Day, category: Int?) -> DaySnapshot {
         let completedIDs = Set(repeatDone[day.rawValue] ?? [])
@@ -21,7 +23,7 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
                      done: completedIDs.contains($0.id), rolled: false, order: $0.order, doneAt: 0, important: $0.important)
         }
         let regular = tasks.filter { $0.date == day.rawValue }.map {
-            TaskItem(reference: .task($0.id), text: $0.text, cat: $0.cat, done: $0.done, rolled: $0.rolled, order: $0.order, doneAt: $0.doneAt, important: $0.important)
+            TaskItem(reference: .task($0.id), text: $0.text, cat: $0.cat, done: $0.done, rolled: $0.rolled, order: $0.order, doneAt: $0.doneAt, important: $0.important, goalTitle: goal(for: $0)?.title)
         }
         let all = repeating + regular
         let visible = all.enumerated().filter { category == nil || $0.element.cat == category }
@@ -77,7 +79,7 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
         tasks[i].done = false; tasks[i].doneAt = 0; tasks[i].rolled = false
     }
     public mutating func convertToRepeat(taskID: String, ruleID: String) {
-        guard let i = tasks.firstIndex(where: { $0.id == taskID }), !repeats.contains(where: { $0.id == ruleID }) else { return }
+        guard let i = tasks.firstIndex(where: { $0.id == taskID }), tasks[i].goalID == nil, !repeats.contains(where: { $0.id == ruleID }) else { return }
         let t = tasks.remove(at: i)
         repeats.append(RepeatRule(id: ruleID, text: t.text, cat: t.cat, from: t.date, reminderMinute: t.reminderMinute, important: t.important, order: t.order))
         if t.done { repeatDone[t.date, default: []].append(ruleID) }
@@ -134,6 +136,7 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
     public mutating func restore(_ removed: RemovedItem, today: Day, timeZone: TimeZone) {
         switch removed {
         case .task(let task):
+            if let goalID = task.goalID, !goals.contains(where: { $0.id == goalID }) { return }
             if !tasks.contains(where: { $0.id == task.id }) { tasks.append(task) }
         case .repeating(let rule, let dates):
             if !repeats.contains(where: { $0.id == rule.id }) { repeats.append(rule) }

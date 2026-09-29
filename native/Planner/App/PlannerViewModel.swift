@@ -112,6 +112,16 @@ struct ImportPreview: Identifiable, Sendable {
         changed(); enqueueSave()
     }
     private func changed() { revision += 1; saveState = .saving; rebuild() }
+    func saveGoal(id: String, title: String, deadline: Day, stages: [GoalStageDraft], creating: Bool) throws {
+        guard canEdit else { throw GoalError.invalid("数据尚未加载完成，请稍后再试。") }
+        try document.saveGoal(id: id, title: title, deadline: deadline, stages: stages, creating: creating,
+                              today: .today(now: now(), timeZone: timeZone()))
+        clearUndo(); changed(); enqueueSave()
+    }
+    func deleteGoal(_ id: String) {
+        guard canEdit else { return }
+        document.deleteGoal(id); clearUndo(); changed(); enqueueSave()
+    }
     func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false, reminderMinute: Int?? = nil, important: Bool? = nil) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canEdit, !value.isEmpty, (0..<4).contains(category) else { return }

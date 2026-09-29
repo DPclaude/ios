@@ -24,6 +24,7 @@ struct TaskRow: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(item.text).font(.body).foregroundStyle(item.done ? Color.secondary : (item.important ? .red : .primary))
                         .strikethrough(item.done).multilineTextAlignment(.leading)
+                    if let goalTitle = item.goalTitle { Label(goalTitle, systemImage: "target").font(.caption).foregroundStyle(.secondary) }
                     HStack(spacing: 10) {
                         if item.important { Label("重要", systemImage: "exclamationmark").foregroundStyle(.red) }
                         if item.cat > 0 { Text(PlannerCategory.names[item.cat]).foregroundStyle(PlannerCategory.color(item.cat)) }

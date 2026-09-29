@@ -2,11 +2,12 @@ import SwiftUI
 import PlannerCore
 
 private enum PlannerSheet: Identifiable {
-    case add(UUID), settings, date, edit(TaskItem)
+    case add(UUID), settings, goals, date, edit(TaskItem)
     var id: String {
         switch self {
         case .add(let request): return "add-\(request)"
         case .settings: return "settings"
+        case .goals: return "goals"
         case .date: return "date"
         case .edit(let item): return "edit-\(item.id)"
         }
@@ -28,6 +29,14 @@ struct PlannerDayView: View {
                     dateHeader
                     WeekStrip(day: model.selectedDay) { model.select(day: $0) }
                     progress
+                    Button { activeSheet = .goals } label: {
+                        HStack {
+                            Label("长期目标", systemImage: "target")
+                            Spacer()
+                            Text("分阶段完成").font(.caption).foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }.accessibilityIdentifier("openGoals").disabled(!model.canEdit)
                 }.listRowSeparator(.hidden)
                 Section { categories }.listRowBackground(Color.clear).listRowInsets(EdgeInsets())
                 if let error = model.loadError {
@@ -84,6 +93,7 @@ struct PlannerDayView: View {
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
                 case .settings: SettingsView(model: model)
+                case .goals: GoalsView(model: model)
                 case .add: TaskEditor(model: model, item: nil)
                 case .edit(let item): TaskEditor(model: model, item: item)
                 case .date: datePicker

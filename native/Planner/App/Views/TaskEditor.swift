@@ -76,7 +76,7 @@ struct TaskEditor: View {
                         if case .task(let id) = item.reference {
                             Button("置顶", systemImage: "pin") { model.perform(.pin(id)); dismiss() }
                             Button("移到下一天", systemImage: "arrow.right") { model.perform(.tomorrow(id)); dismiss() }
-                            Button("改为每天重复", systemImage: "repeat") { save(makeDaily: true) }
+                            if item.goalTitle == nil { Button("改为每天重复", systemImage: "repeat") { save(makeDaily: true) } }
                         } else {
                             Button("取消每天重复", systemImage: "repeat") { confirmCancelRepeat = true }
                         }

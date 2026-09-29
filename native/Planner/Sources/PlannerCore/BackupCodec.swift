@@ -23,9 +23,18 @@ public enum BackupCodec {
         return try encoder.encode(document)
     }
     public static func validate(_ document: PlannerDocument) throws {
+        guard Set(document.goals.map(\.id)).count == document.goals.count else { throw BackupError.invalid("目标编号") }
+        for goal in document.goals {
+            guard !goal.id.isEmpty, !goal.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  Day(rawValue: goal.deadline) != nil else { throw BackupError.invalid("长期目标") }
+        }
         guard Set(document.tasks.map(\.id)).count == document.tasks.count,
               Set(document.repeats.map(\.id)).count == document.repeats.count else { throw BackupError.invalid("任务编号") }
         for t in document.tasks {
+            if let goalID = t.goalID {
+                guard let goal = document.goals.first(where: { $0.id == goalID }), let due = t.deadline,
+                      Day(rawValue: due) != nil, due <= goal.deadline else { throw BackupError.invalid("目标阶段截止日期或关联") }
+            } else if t.deadline != nil { throw BackupError.invalid("目标阶段关联") }
             if let minute = t.reminderMinute, !(0..<1440).contains(minute) { throw BackupError.invalid("提醒时间") }
             guard !t.id.isEmpty, !t.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   Day(rawValue: t.date) != nil, (0...3).contains(t.cat), t.order.isFinite, t.doneAt.isFinite else { throw BackupError.invalid("任务") }

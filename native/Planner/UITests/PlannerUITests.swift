@@ -1,6 +1,37 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    func testGoalStagesCanBeCreatedCompletedAndReopened() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]; app.launch()
+        XCTAssertTrue(app.buttons["openGoals"].waitForExistence(timeout: 10))
+        app.buttons["openGoals"].tap()
+        app.buttons["addGoal"].tap()
+        let title = app.textFields["goalTitle"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5)); title.tap(); title.typeText("完成我的作品")
+        app.textFields["stageTitle-0"].tap(); app.textFields["stageTitle-0"].typeText("完成初稿")
+        dismissKeyboardIntroduction(in: app)
+        if app.buttons["goalDismissKeyboard"].isHittable { app.buttons["goalDismissKeyboard"].tap() }
+        app.buttons["saveGoal"].tap()
+        XCTAssertTrue(app.buttons["goal-完成我的作品"].waitForExistence(timeout: 5))
+        app.buttons["goal-完成我的作品"].tap()
+        XCTAssertTrue(app.buttons["goalToggle-完成初稿"].waitForExistence(timeout: 5))
+        app.buttons["goalToggle-完成初稿"].tap()
+        XCTAssertTrue(app.staticTexts["已完成 1 / 1 阶段"].waitForExistence(timeout: 5))
+        app.buttons["editGoal"].tap()
+        app.buttons["addStage"].tap()
+        let second = app.textFields["stageTitle-1"]
+        for _ in 0..<3 where !second.isHittable { app.swipeUp() }
+        XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap(); second.typeText("打磨并交付")
+        if app.buttons["goalDismissKeyboard"].isHittable { app.buttons["goalDismissKeyboard"].tap() }
+        app.buttons["saveGoal"].tap()
+        XCTAssertTrue(app.staticTexts["已完成 1 / 2 阶段"].waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "长期目标与阶段"; shot.lifetime = .keepAlways; add(shot)
+        app.terminate(); app.launchArguments = ["--uitesting"]; app.launch()
+        XCTAssertTrue(app.buttons["openGoals"].waitForExistence(timeout: 10)); app.buttons["openGoals"].tap()
+        app.buttons["goal-完成我的作品"].tap()
+        XCTAssertTrue(app.staticTexts["已完成 1 / 2 阶段"].waitForExistence(timeout: 5))
+    }
     func testWidgetAddRouteResetsWarmEditorAndDismissesSlice() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--reset-data"]; app.launch()
