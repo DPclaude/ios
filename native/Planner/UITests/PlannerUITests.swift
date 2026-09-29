@@ -1,6 +1,10 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    private func dismissKeyboardIntroduction(in app: XCUIApplication) {
+        let introduction = app.otherElements["UIContinuousPathIntroductionView"]
+        if introduction.waitForExistence(timeout: 2) { introduction.buttons["Continue"].tap() }
+    }
     func testNativeTaskLifecycle() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--reset-data"]
@@ -9,6 +13,7 @@ import XCTest
         app.buttons["addTask"].tap()
         let field = app.textViews["taskText"]
         XCTAssertTrue(field.waitForExistence(timeout: 3)); field.tap(); field.typeText("测试计划")
+        dismissKeyboardIntroduction(in: app)
         app.buttons["saveTask"].tap()
         XCTAssertTrue(app.buttons["edit-测试计划"].waitForExistence(timeout: 3))
         app.buttons["toggle-测试计划"].tap()
@@ -51,21 +56,21 @@ import XCTest
         let field = app.textViews["taskText"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap(); field.typeText("第一件事")
+        dismissKeyboardIntroduction(in: app)
         if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
         let keepAdding = app.switches["保存后继续添加"]
         for _ in 0..<4 where !keepAdding.isHittable || keepAdding.frame.maxY > app.frame.maxY - 40 { app.swipeUp() }
         XCTAssertTrue(keepAdding.isHittable, app.debugDescription)
-        print("CONTINUE_ADD_SWITCH", keepAdding.debugDescription)
         keepAdding.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(keepAdding.value as? String, "1")
         app.buttons["saveTask"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 3))
         XCTAssertEqual(field.value as? String, "")
         field.tap(); field.typeText("第二件事")
+        dismissKeyboardIntroduction(in: app)
         if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
         for _ in 0..<4 where !keepAdding.isHittable || keepAdding.frame.maxY > app.frame.maxY - 40 { app.swipeUp() }
         XCTAssertTrue(keepAdding.isHittable, app.debugDescription)
-        print("CONTINUE_ADD_SWITCH", keepAdding.debugDescription)
         keepAdding.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(keepAdding.value as? String, "0")
         app.buttons["saveTask"].tap()
