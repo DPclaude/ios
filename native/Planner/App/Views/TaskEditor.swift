@@ -64,6 +64,10 @@ struct TaskEditor: View {
                     Button("保存") { save() }.bold().accessibilityIdentifier("saveTask")
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !model.canEdit)
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { focused = false }.accessibilityIdentifier("dismissKeyboard")
+                }
             }
             .task { if item == nil { focused = true } }
             .confirmationDialog("删除整条重复规则？", isPresented: $confirmDelete, titleVisibility: .visible) {
