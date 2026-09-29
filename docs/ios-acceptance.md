@@ -1,6 +1,6 @@
 # 原生计划本验收记录
 
-目标设备：iPhone 14 Pro / iOS 27.0（用户提供，未读取真机）。用户尚未安装 SideStore。
+目标设备：iPhone 14 Pro / iOS 27.0（用户提供，未读取真机）。用户已安装 SideStore；旧包在手机签名时报 appIdName 拒绝中文名称，修复版待重试。
 
 ## 云端
 
@@ -10,14 +10,18 @@
 | iOS 状态 | 10 项通过，含编辑草稿转重复、跨午夜编辑回归 |
 | 原生 UI | 3 项通过：连续添加/筛选/切日/编辑；完成/删除/撤销/重开；深色/大字体 |
 | iOS XCTest 汇总 | 13 项通过，0 失败，0 跳过 |
-| 真机 Release 编译与 IPA 校验 | 成功；arm64、Bundle ID 和 ZIP 完整性检查通过 |
+| 真机 Release 编译与 IPA 校验 | 成功；arm64、Bundle ID、英文签名名称、中文本地化名称和 ZIP 完整性检查通过 |
 | 原网页版回归 | Windows 本地 `node --test tests/planner.test.cjs`：5 项通过 |
 
-验证日期：2026-09-29。[完整成功运行 #13](https://github.com/DPclaude/ios/actions/runs/36516948018)，源码 `0e9a390c6e574821301f7a738436a0c260e53efd`。构建工具 Xcode 26.6，测试设备 iPhone 17 Pro 模拟器 / iOS 26.5。后续验收文档修改不改变该版本原生代码。
+验证日期：2026-09-29。[完整成功运行 #19](https://github.com/DPclaude/ios/actions/runs/36522015078)，源码 `c40a2112c6067ae2c029501f6337595fb7e1c646`。构建工具 Xcode 26.6，测试设备 iPhone 17 Pro 模拟器 / iOS 26.5。后续验收文档修改不改变该版本原生代码。
 
-[下载 Planner-native-13](https://github.com/DPclaude/ios/actions/runs/36516948018/artifacts/11011159563)（可能需要登录 GitHub）。归档包含 `Planner-unsigned.ipa`、校验文件、测试报告和测试截图；保留 7 天。过期后在 Native iOS 工作流重新运行生成。App 版本 1.0.0，构建号 13。该 IPA 尚未签名，按 [Windows / SideStore 安装指南](ios-install.md)安装。
+[下载 Planner-native-19](https://github.com/DPclaude/ios/actions/runs/36522015078/artifacts/11012714091)（可能需要登录 GitHub）。归档包含 `Planner-unsigned.ipa`、校验文件、测试报告和测试截图；保留 7 天。过期后在 Native iOS 工作流重新运行生成。App 版本 1.0.0，构建号 19。该 IPA 尚未签名，按 [Windows / SideStore 安装指南](ios-install.md)安装。
 
 本次云端验证通过，不代表已在用户手机安装、完成续签或测得固定帧率。
+
+## SideStore 名称修复
+
+基础 CFBundleDisplayName / CFBundleName 改为 ASCII `Planner`，中文名称放入 `zh-Hans.lproj/InfoPlist.strings`，Bundle ID 保持 `com.dpclaude.planner`。构建日志确认 `Validated signing name Planner and localized Chinese app name.`；对照 [SideStore 同类问题 #1489](https://github.com/SideStore/SideStore/issues/1489) 及其 SideSign 原始 plist 读取逻辑。这里只确认安装包配置与云端验证，Apple 真机签名仍待用户重试。
 
 ## 手机端
 
@@ -25,7 +29,7 @@
 
 | 项目 | 状态 | 记录 |
 |---|---|---|
-| 安装当前 IPA | 未验证 | 记录 App 版本及构建号 |
+| 安装当前 IPA | 待重试 | SideStore 已安装；构建 19 修复签名名称，需真机确认 |
 | 导入旧备份 | 未验证 | 核对任务、规则、备忘数量 |
 | 无网络创建及编辑任务 | 未验证 | |
 | 关闭重开保持数据 | 未验证 | |
