@@ -1,7 +1,7 @@
 name: Native iOS
 on:
   push:
-    branches: [codex/native-ios]
+    branches: [main, codex/native-ios]
     paths: ['native/**', '.github/workflows/ios-native.yml']
   pull_request:
     paths: ['native/**', '.github/workflows/ios-native.yml']
@@ -12,40 +12,13 @@ concurrency:
   group: native-ios-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  source:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      revision: ${{ steps.source.outputs.revision }}
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - id: source
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "$GITHUB_REF" == "refs/heads/codex/native-ios" ]]; then
-            echo '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' | base64 -d | gzip -d > /tmp/native-source.patch
-            if ! git apply --reverse --check /tmp/native-source.patch 2>/dev/null; then
-              git apply /tmp/native-source.patch
-              git config user.name 'github-actions[bot]'
-              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-              git add native docs
-              git commit -m 'fix: preserve editor drafts and midnight rollover'
-              git push origin HEAD:codex/native-ios
-            fi
-          fi
-          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
-    needs: source
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6.0.2
-        with:
-          ref: ${{ needs.source.outputs.revision }}
       - uses: actions/cache/restore@v4
         id: xcodegen-cache
         with:
@@ -55,12 +28,14 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+          xcrun simctl boot "iPhone 17 Pro"
       - name: Core tests
         run: swift test --package-path native/Planner
       - name: iOS tests and IPA
         shell: bash
         run: |
           cd native/Planner
+          xcrun simctl bootstatus "iPhone 17 Pro" -b
           bash scripts/ci-test.sh
           bash scripts/build-ipa.sh
       - uses: actions/cache/save@v4
