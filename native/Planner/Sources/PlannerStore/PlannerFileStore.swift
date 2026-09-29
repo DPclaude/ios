@@ -61,6 +61,7 @@ public actor PlannerFileStore {
         return restored
     }
     public func decodeBackup(_ data: Data) throws -> PlannerDocument { try BackupCodec.decode(data) }
+    public func readBackup(url: URL) throws -> PlannerDocument { try BackupCodec.decode(Data(contentsOf: url)) }
     public func encodeBackup(_ document: PlannerDocument) throws -> Data { try BackupCodec.encode(document) }
     private func decodeEnvelope(_ data: Data) throws -> StoreSnapshot {
         let envelope = try JSONDecoder().decode(Envelope.self, from: data)
