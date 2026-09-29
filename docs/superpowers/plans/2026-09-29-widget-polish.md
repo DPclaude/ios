@@ -19,7 +19,7 @@
 - [x] Update TaskEditor/TaskRow/PlannerDayView for red importance, earlier reminders, category chips and native List reorder.
 - [x] Update WidgetProjection/PlannerWidgetContent for separate completed rows, optimistic circles and no decorative footer/progress; route blank space to adding today.
 - [x] Reconcile notification requests by content; use task title and test unchanged/edited/missing requests.
-- [ ] Run Core/Store, App state, UI, metadata checks and device Release packaging; review and fix findings.
-- [ ] Publish verified 1.3.0 IPA/update source, refresh simple instructions, retain draft PR.
+- [x] Run Core/Store, App state, UI, metadata checks and device Release packaging; review and fix findings.
+- [x] Publish verified 1.3.0 IPA/update source, refresh simple instructions, retain draft PR.
 
 No simulator-only claim establishes physical SideStore performance or iOS 27 notification delivery.
