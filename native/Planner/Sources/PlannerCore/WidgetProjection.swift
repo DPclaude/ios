@@ -8,7 +8,7 @@ public struct WidgetProjection: Sendable {
     public init(document: PlannerDocument, day: Day, timeZone: TimeZone = .current) {
         var current = document
         current.rollover(today: day, timeZone: timeZone)
-        let snapshot = current.snapshot(day: day)
+        let snapshot = current.snapshot(day: day, category: nil)
         self.day = day
         titles = snapshot.open.map(\.text)
         total = snapshot.totalCount

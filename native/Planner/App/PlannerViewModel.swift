@@ -171,10 +171,14 @@ struct ImportPreview: Identifiable, Sendable {
         let done: Bool
         switch reference {
         case .task(let id): done = document.tasks.first(where: { $0.id == id })?.done == true
-        case .repeating(_, let day): done = document.snapshot(day: day).completed.contains(where: { $0.reference == reference })
+        case .repeating(_, let day): done = document.snapshot(day: day, category: nil).completed.contains(where: { $0.reference == reference })
         }
         sliceUndo = nil
-        if done { perform(.toggle(reference)) }
+        if done {
+            document.toggle(reference, now: now())
+            document.rollover(today: .today(now: now(), timeZone: timeZone()), timeZone: timeZone())
+            changed(); enqueueSave()
+        }
     }
     func undoDelete(now: Date) {
         guard canEdit, undoAvailable, now <= undoDeadline, let removed else { clearUndo(); return }

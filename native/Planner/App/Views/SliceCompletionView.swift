@@ -38,6 +38,7 @@ struct SliceCompletionView: View {
                                     guard model.completeForSlice(item.reference) else { animating = nil; return false }
                                     return true
                                 }, finished: {
+                                    guard animating == item.reference else { return }
                                     animating = nil; visible = model.snapshot.open
                                 })
                                 .disabled(animating != nil || !model.canEdit)
@@ -140,9 +141,9 @@ private struct SliceCard: View {
         .sensoryFeedback(.success, trigger: slicing)
         .task(id: slicing) {
             guard slicing else { return }
+            defer { finished() }
             withAnimation(.easeOut(duration: reduceMotion ? 0.18 : 0.55)) { progress = 1 }
             do { try await Task.sleep(for: .milliseconds(reduceMotion ? 220 : 600)) } catch { return }
-            finished()
         }
     }
     private func begin() {

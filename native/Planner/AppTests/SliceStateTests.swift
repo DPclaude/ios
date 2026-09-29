@@ -4,6 +4,25 @@ import PlannerStore
 @testable import Planner
 
 @MainActor final class SliceStateTests: XCTestCase {
+    func testUndoAcrossMidnightRollsOrdinaryPlanIntoToday() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let zone = TimeZone(identifier: "Asia/Shanghai")!
+        let yesterday = Day(rawValue: "2026-09-29")!
+        let today = Day(rawValue: "2026-09-30")!
+        var clock = yesterday.date(timeZone: zone)
+        let model = PlannerViewModel(store: PlannerFileStore(directory: dir), now: { clock }, timeZone: { zone })
+        await model.load()
+        model.perform(.add(text: "跨天撤销", category: 0, day: yesterday, repeating: false))
+        XCTAssertTrue(model.completeForSlice(model.snapshot.open[0].reference))
+        clock = today.date(timeZone: zone)
+        await model.refreshCalendar()
+        model.undoSliceCompletion()
+        XCTAssertEqual(model.snapshot.open.map(\.text), ["跨天撤销"])
+        XCTAssertEqual(model.document.tasks.first?.date, today.rawValue)
+        XCTAssertEqual(WidgetProjection(document: model.document, day: today, timeZone: zone).titles, ["跨天撤销"])
+        await model.flush()
+    }
     func testRepeatedSliceDoesNotUncompleteAndUndoPreservesOtherEdits() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
