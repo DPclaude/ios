@@ -1,5 +1,16 @@
 # 原生计划本验收记录
 
+## 1.4.1 组件即时点按反馈
+
+源码 `1d2315f394e3c975555836b236bf7210578a842f`；构建 46。[完整测试与发布](https://github.com/DPclaude/ios/actions/runs/36565969307)成功：37 项 Core/Store、33 项 App、9 项 UI、2 项元数据测试。
+
+- 普通按钮改为系统乐观 Toggle，使用 configuration.isOn 绘制绿色勾选、划线、浅绿背景及「正在完成」；系统收到点按即可切换预渲染状态，分组仍由最终持久化快照决定。
+- 保留单次最终发布、重复完成保护、保存失败恢复和提醒重试。没有提前结束保存或取消提醒处理来制造低延迟。
+- 已检查中/大组件的点按前和等待中渲染截图。截图只验证状态的显示，不是 WidgetKit 真机点击延迟测量。
+- [1.4.1 发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.4.1)的公开 IPA 已校验：1232535 字节，SHA256 `b9fb7653cc8a912f629bc6fbe573c47b1e5316f29b4ea49bb053ceaa2e242a10`。App/Widget 版本、构建号、AppGroup、Intent、ZIP 和 latest 更新源一致。
+
+iPhone 14 Pro / iOS 27.0 真机上的动画与归类延迟尚未测量，不能承诺系统调度零延迟。
+
 ## 1.4.0 长期目标与组件归类
 
 源码 `885fecc7cfc410b3208ca4eb16f04b922b65cfb8`；构建 45。Xcode 26.6 / iOS 26.5 模拟器。
