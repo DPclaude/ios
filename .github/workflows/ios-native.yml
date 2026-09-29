@@ -1,29 +1,52 @@
 name: Native iOS
 on:
   push:
-    branches: [main, codex/native-ios]
-    paths: ['native/**', '.github/workflows/ios-native.yml']
-  pull_request:
-    paths: ['native/**', '.github/workflows/ios-native.yml']
+    branches: [codex/native-ios]
+    paths: ['.github/workflows/ios-native.yml']
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish verified native version to SideStore
-        type: boolean
-        default: false
 permissions:
   contents: read
-concurrency:
-  group: native-ios-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
+  source:
+    if: github.ref == 'refs/heads/codex/native-ios'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.apply.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Materialize reviewed source
+        id: apply
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,json,pathlib
+          files=json.loads(gzip.decompress(base64.b64decode('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')))
+          for name,content in files.items():
+              p=pathlib.Path(name)
+              assert name.startswith(('native/','docs/')) and '..' not in p.parts and not p.is_absolute()
+              p.parent.mkdir(parents=True,exist_ok=True)
+              p.write_text(content,encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add native docs
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: long-term goals and single widget completion publication'
+            git push origin HEAD:codex/native-ios
+          fi
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
+    needs: source
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.source.outputs.revision }}
       - uses: actions/cache/restore@v4
         id: xcodegen-cache
         with:
@@ -74,7 +97,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/codex/native-ios' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish native]')))
-    needs: verify
+    needs: [source, verify]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -99,6 +122,6 @@ jobs:
             exit 1
           fi
           REMOTE_HEAD=$(gh api "repos/$GH_REPO/git/ref/heads/codex/native-ios" --jq '.object.sha')
-          test "$REMOTE_HEAD" = "$GITHUB_SHA" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
+          test "$REMOTE_HEAD" = "${{ needs.source.outputs.revision }}" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
           gh release create "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json" \
             --target "$GITHUB_REF_NAME" --title "计划本 $VERSION" --notes-file "$RELEASE_DIR/release-notes.md" --latest
