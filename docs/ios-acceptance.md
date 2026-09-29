@@ -2,6 +2,24 @@
 
 目标设备：iPhone 14 Pro / iOS 27.0（用户提供，尚未连接真机验收）。
 
+## 1.2.0 桌面直接完成与逐条通知提醒
+
+源码 `8913e12420bfc6fc2263add0b015a21f1051419f`；构建 37。Xcode 26.6；iPhone 17 Pro / iOS 26.5 模拟器。
+
+- Core/Store：25 项通过，包括提醒备份兼容、分钟校验、每日完成/撤销、过期时间、最近 60 条容量及 DST 日期。
+- App 状态：23 项通过，包括桌面重复点击、导入/跨天过期按钮、并发加载、同步发布失败重试、阻塞写入并发测试、通知失败恢复。
+- UI：5 项通过，包括提醒开关保存后重开编辑器、任务完整生命周期、连续添加、深色/大字体及划切撤销。
+- 更新源：2 项 Node 测试通过。
+- [测试与打包记录](https://github.com/DPclaude/ios/actions/runs/36536202621/job/109300756177)与[发布任务](https://github.com/DPclaude/ios/actions/runs/36536202621/job/109304404041)均成功。
+- [1.2.0 发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.2.0)已公开；标签精确指向上述测试源码。公开下载复核 App 与 Widget 均为 1.2.0（37），大小 977952 字节，SHA256 `29830a4e5dd484649d0c8f5e33c5746596ca954a93805bb743c1a93b0701a7a5`。ZIP 检查通过。
+- App 和 Widget 都包含 CompletePlanIntent/RefreshPlannerIntent 元数据，openAppWhenRun=false。latest 更新源及清单的版本、Bundle ID、IPA URL 和文件大小均已校验。
+
+独立检查后的四项修复：后台保存等待通知队列；组件同步失败可再次发布已保存快照；完成操作等待并发新保存；提醒排程失败会在组件显示并提供重试。核心私有数据仍只有主应用进程写入，组件通过后台 App Intent 调用该进程，`openAppWhenRun=false`。
+
+每日提醒预排未来 30 天，共保留最近 60 条；启动、保存及组件操作后补充。已过去的提醒不补发。通知权限和系统专注模式仍由用户控制。
+
+真机待确认：iPhone 14 Pro / iOS 27.0 上 SideStore 重签名后的桌面后台 Intent、实际通知到达与取消、App Group 同步。模拟器及打包成功不等于已经在用户手机完成这些检查。
+
 ## 1.1.0 云端验证
 
 验证日期：2026-09-29。构建 27；源码 `cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c`。Xcode 26.6；iPhone 17 Pro 模拟器 / iOS 26.5。
