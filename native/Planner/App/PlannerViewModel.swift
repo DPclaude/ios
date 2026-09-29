@@ -91,11 +91,19 @@ struct ImportPreview: Identifiable, Sendable {
         changed(); enqueueSave()
     }
     private func changed() { revision += 1; saveState = .saving; rebuild() }
-    // Shared editor transaction; kept behavior-equivalent while adding regression tests.
     func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false) {
-        if makeDaily, case .task(let id) = reference { perform(.makeDaily(id)); return }
-        perform(.edit(reference, text: text, category: category))
-        if case .task(let id) = reference { perform(.reschedule(taskID: id, day: editedDay)) }
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canEdit, !value.isEmpty, (0..<4).contains(category) else { return }
+        document.edit(reference, text: value, category: category)
+        if case .task(let id) = reference {
+            // An untouched date must preserve any rollover that happened while editing.
+            if editedDay != originalDay, let index = document.tasks.firstIndex(where: { $0.id == id }) {
+                document.tasks[index].date = editedDay.rawValue
+                document.tasks[index].rolled = false
+            }
+            if makeDaily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
+        }
+        changed(); enqueueSave()
     }
     func updateNote(_ text: String, for day: Day) {
         guard canEdit, document.notes[day.rawValue, default: ""] != text else { return }
