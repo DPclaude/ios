@@ -2,10 +2,10 @@ import SwiftUI
 import PlannerCore
 
 private enum PlannerSheet: Identifiable {
-    case add, settings, date, edit(TaskItem)
+    case add(UUID), settings, date, edit(TaskItem)
     var id: String {
         switch self {
-        case .add: return "add"
+        case .add(let request): return "add-\(request)"
         case .settings: return "settings"
         case .date: return "date"
         case .edit(let item): return "edit-\(item.id)"
@@ -90,9 +90,12 @@ struct PlannerDayView: View {
                 }
             }
             .onChange(of: model.isShowingAdd, initial: true) { _, requested in
-                if requested { activeSheet = .add; model.isShowingAdd = false }
+                if requested {
+                    if model.isShowingSlice { model.isShowingSlice = false }
+                    else { presentRequestedAdd() }
+                }
             }
-            .fullScreenCover(isPresented: Binding(get: { model.isShowingSlice }, set: { model.isShowingSlice = $0 })) {
+            .fullScreenCover(isPresented: Binding(get: { model.isShowingSlice }, set: { model.isShowingSlice = $0 }), onDismiss: presentRequestedAdd) {
                 SliceCompletionView(model: model)
             }
             .confirmationDialog("删除整条每日计划？", isPresented: Binding(get: { deletingRepeat != nil }, set: { if !$0 { deletingRepeat = nil } }), titleVisibility: .visible) {
@@ -173,10 +176,15 @@ struct PlannerDayView: View {
                     Button("撤销") { model.undoDelete() }.bold().accessibilityIdentifier("undoDelete")
                 }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
-            Button { activeSheet = .add } label: { Label("添加计划", systemImage: "plus").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8) }
+            Button { activeSheet = .add(UUID()) } label: { Label("添加计划", systemImage: "plus").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8) }
                 .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                 .accessibilityIdentifier("addTask").disabled(!model.canEdit)
         }.padding(.horizontal, 20).padding(.vertical, 10).background(.bar)
+    }
+    private func presentRequestedAdd() {
+        guard model.isShowingAdd else { return }
+        activeSheet = .add(UUID())
+        model.isShowingAdd = false
     }
     @ViewBuilder private var saveStatus: some View {
         switch model.saveState {

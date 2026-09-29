@@ -1,6 +1,51 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    func testWidgetAddRouteResetsWarmEditorAndDismissesSlice() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]; app.launch()
+        XCTAssertTrue(app.buttons["addTask"].waitForExistence(timeout: 10))
+        app.buttons["后一天"].tap(); app.buttons["addTask"].tap()
+        let field = app.textViews["taskText"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("旧日期草稿")
+        dismissKeyboardIntroduction(in: app)
+        app.open(URL(string: "planner://add")!)
+        let empty = NSPredicate(format: "value == %@", "")
+        expectation(for: empty, evaluatedWith: field); waitForExpectations(timeout: 5)
+        field.tap(); field.typeText("从组件新增今天")
+        app.buttons["saveTask"].tap()
+        XCTAssertTrue(app.buttons["edit-从组件新增今天"].waitForExistence(timeout: 5))
+        app.buttons["今天"].tap()
+        XCTAssertTrue(app.buttons["edit-从组件新增今天"].exists)
+        app.buttons["openSlice"].tap()
+        XCTAssertTrue(app.buttons["closeSlice"].waitForExistence(timeout: 5))
+        app.open(URL(string: "planner://add")!)
+        XCTAssertTrue(app.textViews["taskText"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["closeSlice"].exists)
+    }
+    func testNativeDragReorderingPersists() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]; app.launch()
+        XCTAssertTrue(app.buttons["addTask"].waitForExistence(timeout: 10))
+        for title in ["排序甲", "排序乙"] {
+            app.buttons["addTask"].tap()
+            let field = app.textViews["taskText"]
+            XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText(title)
+            dismissKeyboardIntroduction(in: app); app.buttons["saveTask"].tap()
+            XCTAssertTrue(app.buttons["edit-\(title)"].waitForExistence(timeout: 5))
+        }
+        app.buttons["reorderPlans"].tap()
+        let first = app.cells.containing(.button, identifier: "edit-排序甲").firstMatch
+        let second = app.cells.containing(.button, identifier: "edit-排序乙").firstMatch
+        XCTAssertTrue(first.exists); XCTAssertTrue(second.exists)
+        first.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).press(forDuration: 0.8,
+            thenDragTo: second.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.95)))
+        app.buttons["reorderPlans"].tap()
+        XCTAssertLessThan(app.buttons["edit-排序乙"].frame.minY, app.buttons["edit-排序甲"].frame.minY)
+        app.terminate(); app.launchArguments = ["--uitesting"]; app.launch()
+        XCTAssertTrue(app.buttons["edit-排序甲"].waitForExistence(timeout: 10))
+        XCTAssertLessThan(app.buttons["edit-排序乙"].frame.minY, app.buttons["edit-排序甲"].frame.minY)
+    }
     func testImportantFlagAndEarlierReminderPersistWithoutDefaultCategory() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--reset-data"]

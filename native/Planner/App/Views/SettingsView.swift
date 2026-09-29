@@ -26,8 +26,8 @@ struct SettingsView: View {
                 UpdateSection()
                 ReminderSettingsSection()
                 Section("桌面小组件") {
-                    Text("长按手机桌面 → 编辑 → 添加小组件 → 搜索「计划本」→ 选择大号。点每条计划旁的勾即可完成，点空白处进入全屏划切。")
-                    Text("可以把大组件和中组件放在同一页。组件更新时间由 iOS 调度，刚保存后可能需要片刻显示。")
+                    Text("长按手机桌面 → 编辑 → 添加小组件 → 搜索「计划本」→ 选择大号。点小圆圈完成计划，已完成的保留在下方；点空白处添加今天的计划。")
+                    Text("在首页点「排序」，拖动计划右侧把手，顺序会同步到组件。中组件最多展示 2 项，大组件最多 5 项，完整列表在 App 内。勾选立即反馈，分组刷新仍由 iOS 调度。")
                         .font(.footnote).foregroundStyle(.secondary)
                     if let message = model.widgetMessage { Text(message).font(.footnote).foregroundStyle(.orange) }
                     NavigationLink("预览大组件") {

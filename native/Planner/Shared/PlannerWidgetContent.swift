@@ -7,7 +7,7 @@ struct PlannerWidgetContent: View {
     let compact: Bool
     var generation: UUID? = nil
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("今天的计划").font(.headline)
                 Spacer(minLength: 4)
@@ -23,7 +23,7 @@ struct PlannerWidgetContent: View {
             if let projection {
                 Text("\(projection.items.count) 件待完成").font(.caption).foregroundStyle(.secondary)
                     .contentTransition(.numericText()).invalidatableContent()
-                let visible = projection.visibleItems(limit: compact ? 2 : 6)
+                let visible = projection.visibleItems(limit: compact ? 2 : 5)
                 if visible.isEmpty {
                     Text("今天想做点什么？").font(.subheadline).foregroundStyle(.secondary)
                 }

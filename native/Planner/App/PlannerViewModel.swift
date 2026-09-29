@@ -144,7 +144,6 @@ struct ImportPreview: Identifiable, Sendable {
         guard canEdit else { return }
         if url.host == "slice" { isShowingAdd = false; openSlice() }
         else {
-            isShowingSlice = false
             select(day: .today(now: now(), timeZone: timeZone()))
             select(category: nil)
             isShowingAdd = true
