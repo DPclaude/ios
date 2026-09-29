@@ -38,8 +38,15 @@ import XCTest
         let first = app.cells.containing(.button, identifier: "edit-排序甲").firstMatch
         let second = app.cells.containing(.button, identifier: "edit-排序乙").firstMatch
         XCTAssertTrue(first.exists); XCTAssertTrue(second.exists)
-        first.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).press(forDuration: 0.8,
-            thenDragTo: second.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.95)))
+        XCTAssertEqual(app.buttons["reorderPlans"].label, "完成排序")
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Native reorder controls"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        let before = XCTAttachment(screenshot: app.screenshot())
+        before.name = "排序把手"; before.lifetime = .keepAlways; add(before)
+        let handles = second.buttons.matching(NSPredicate(format: "identifier != %@ AND identifier != %@", "edit-排序乙", "toggle-排序乙"))
+        XCTAssertEqual(handles.count, 1, app.debugDescription)
+        guard handles.count == 1 else { return }
+        handles.element(boundBy: 0).press(forDuration: 1, thenDragTo: first, withVelocity: .slow, thenHoldForDuration: 1)
         app.buttons["reorderPlans"].tap()
         XCTAssertLessThan(app.buttons["edit-排序乙"].frame.minY, app.buttons["edit-排序甲"].frame.minY)
         app.terminate(); app.launchArguments = ["--uitesting"]; app.launch()

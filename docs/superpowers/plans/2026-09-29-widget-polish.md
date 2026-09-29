@@ -14,11 +14,11 @@
 - Widget add deep link works cold/warm and chooses today; errors remain actionable without permanent footer copy.
 
 ## Tasks
-- [ ] Add regression tests; confirm current behavior fails in cloud CI.
-- [ ] Extend Models/PlannerDocument/BackupCodec for importance and repeat order; implement scoped reorder; add conversion, backup, filtered and repeat tests.
-- [ ] Update TaskEditor/TaskRow/PlannerDayView for red importance, earlier reminders, category chips and native List reorder.
-- [ ] Update WidgetProjection/PlannerWidgetContent for separate completed rows, optimistic circles and no decorative footer/progress; route blank space to adding today.
-- [ ] Reconcile notification requests by content; use task title and test unchanged/edited/missing requests.
+- [x] Add regression tests; confirm current behavior fails in cloud CI (run 38: four expected field-preservation assertions).
+- [x] Extend Models/PlannerDocument/BackupCodec for importance and repeat order; implement scoped reorder; add conversion, backup, filtered and repeat tests.
+- [x] Update TaskEditor/TaskRow/PlannerDayView for red importance, earlier reminders, category chips and native List reorder.
+- [x] Update WidgetProjection/PlannerWidgetContent for separate completed rows, optimistic circles and no decorative footer/progress; route blank space to adding today.
+- [x] Reconcile notification requests by content; use task title and test unchanged/edited/missing requests.
 - [ ] Run Core/Store, App state, UI, metadata checks and device Release packaging; review and fix findings.
 - [ ] Publish verified 1.3.0 IPA/update source, refresh simple instructions, retain draft PR.
 
