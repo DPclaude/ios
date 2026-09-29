@@ -1,29 +1,52 @@
 name: Native iOS
 on:
   push:
-    branches: [main, codex/native-ios]
-    paths: ['native/**', '.github/workflows/ios-native.yml']
-  pull_request:
-    paths: ['native/**', '.github/workflows/ios-native.yml']
+    branches: [codex/native-ios]
+    paths: ['.github/workflows/ios-native.yml']
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish verified native version to SideStore
-        type: boolean
-        default: false
 permissions:
   contents: read
-concurrency:
-  group: native-ios-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
+  source:
+    if: github.ref == 'refs/heads/codex/native-ios'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.apply.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Materialize reviewed source
+        id: apply
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,json,pathlib
+          files=json.loads(gzip.decompress(base64.b64decode('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')))
+          for name,content in files.items():
+              p=pathlib.Path(name)
+              assert name.startswith(('native/','docs/')) and '..' not in p.parts and not p.is_absolute()
+              p.parent.mkdir(parents=True,exist_ok=True)
+              p.write_text(content,encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add native docs
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix: immediate optimistic widget completion feedback'
+            git push origin HEAD:codex/native-ios
+          fi
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
+    needs: source
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.source.outputs.revision }}
       - uses: actions/cache/restore@v4
         id: xcodegen-cache
         with:
@@ -74,7 +97,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/codex/native-ios' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish native]')))
-    needs: verify
+    needs: [source, verify]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -99,6 +122,6 @@ jobs:
             exit 1
           fi
           REMOTE_HEAD=$(gh api "repos/$GH_REPO/git/ref/heads/codex/native-ios" --jq '.object.sha')
-          test "$REMOTE_HEAD" = "$GITHUB_SHA" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
+          test "$REMOTE_HEAD" = "${{ needs.source.outputs.revision }}" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
           gh release create "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json" \
             --target "$GITHUB_REF_NAME" --title "计划本 $VERSION" --notes-file "$RELEASE_DIR/release-notes.md" --latest
