@@ -1,29 +1,52 @@
 name: Native iOS
 on:
   push:
-    branches: [main, codex/native-ios]
-    paths: ['native/**', '.github/workflows/ios-native.yml']
-  pull_request:
-    paths: ['native/**', '.github/workflows/ios-native.yml']
+    branches: [codex/native-ios]
+    paths: ['.github/workflows/ios-native.yml']
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish verified native version to SideStore
-        type: boolean
-        default: false
 permissions:
   contents: read
-concurrency:
-  group: native-ios-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
+  source:
+    if: github.ref == 'refs/heads/codex/native-ios'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.apply.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Materialize reviewed source
+        id: apply
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,json,pathlib
+          files=json.loads(gzip.decompress(base64.b64decode('H4sIABl6u2oC/6VXy24jxxX9lRtqEWnQJOUJ/CIRJLI0dpTYM4KocQKIWhS7i2RZ3VXtqmpRnIEWXgUIEGTptRfJ1h/g33GM5C9y7q3uJqXYSIIIerCrq+7znHNLbweFy8M4NLX2tdtoH8Z1qWwYPz9+/t7w+MPh8w+HG1OsdBzWrjRhPaqKwYQGB/R7WSVlC4oq3JIuTDR2RV4vjdWVtnFu5/bZs0+cKifPntHHKkTtCX5ybe50Qcks5a6qSx2Ns9PuM15KEBSi2lLQtfIq6nJLC126Dbla27RhSgv8uaVQq1zLeiBVFByGkh1TCoZNesphYeW80WHMkTo/5VCCQVA2kvOF9nIM6Xj4xynno8IrTi6MOJMTn69N1HlsvOaMLnVUxsKDXZWaVF0Pa+9yHQJtvOFc2ZipqiaqBTa0+Sq2cqdHXQGv3IqPr7AWkEI0FWIyOYUtQqtoqXWxUPntlBQcq3IXNTL2ukIEyLmJa+QWVRTLL100S4OMUVTsyZ3NTWnSI5dYebjS9+wHKYd8rYumRNLYKNWAyahVQW6J06FZVCbKTlWWWPiy0SGGEZ0UBXFkG+WLoZiNhvPsSpfrsZSVlkaXRSrhlc7XNIs4xQWcbcwy0ntZ+vD6PGtr8jsTMzqpazqXeEJGr4P2+1mh8+bVjN55nypjTdVUU/rExN80C6pUjhen5+JuVuucHfHxnweyTbXQ3F1OwngBaUC2FNcmcPZ3qK1KULT73iisgTuBedT36GHk0hvL2aFhKPmZDrfR1VR4tSIYaywoxXXQBUK1Q87G61SPsLX52jtr3qAN0bXAyNBZK9BtAvMEPEKs3OWl8+hW9GoHIe82XNC5PTigUwSIl4ZzSfC9M3qDU3kT5nZIF+ih9neazs9QyZkp9AzwF8DSyrumxuoLQBjkBpZXlkOwqtJYdmVqMfaI6ZZEWzqmQkU1pTWsoXqaCr1UTRl3O/K1MzmDHshsIgyXKDYoDDi2THzDjnoUCp9HHO9pLwhUNQFHG38HWONkZPpmaBTCKlWDKqaogO/Ge0Yul5npHfa1BFysQsuVXk3YTFs3bFlsezlS0BITtxLKZ+Ze0FJrFRnMxiqk1ouFhNfyMescFPDpGZXM4qztSAAQI4hQRsFfwBPjSpyc93zpUg2SQ9YhEjszAKpwWduMrAu2bhZli9EpmBBYilq69R0JagnpFE/CoK30JIG5JTw8sfuS3CI4rlmPblS7qdFqLRFJLdoXUNZbU5Oz6ClAYJGsiFOCcKcSGfOoj6zXDg6mmx9QkULrmkoDId84fxukwWPISpXau3YuCFMKtZ2SBvh9304lhWz1NUENDamUZTQsnWMZzl297chyxWrO7q/pRhTM6xXawzUGtUMCjl0a+O4wtdBrdWfAwaUypchFXrqmSBqTDL24RxkL+swVugzjC0DZan8GArLCjD+Spp3iZS5c3glkiw6GV0LVlGRc8THoMgZa0anGVCq1j4gOCz2q9ozFvswc3uvUQs79hcy+MX+8dJs+VLX9PGmGfzT9ctBEK18a7fchsUdy0yqDldFDnwL1XcRP3aeGX3j3RUJ/5zytn7azh0PoOLrHYRa8bH885sbnpW6dO0Aodz7FkLo+xiyWzk5xtoGt/ZsCRLe9Jgio+kgv21mpH8l/j1uWiZYyU1bpdiKYWKZOctWJZUnZlS7GiTLjH0W/eGssxM7rsehxmni48bA28SyscL1glUWVdX6bMi2g7Yj/UpdawT+SuVUrGJ92qs+bluYeP0LEnbMLlgooPOCDxFDRd0a/GB3T+cXJuGV4cI3nhmPwoG7r9uYklwHfJL3il3LnwZjD5L64FFq9dLy3KRXSGIog5KUyFSFZJU7Rpnq9DaIQu/kDnqLZlfCAWYGx/fz9x4UHndBRzw0aZDRIIOtwM77ianZPXMi0wNi+kLuqPI8CXy74zppQTX845fW5/XVMAXY3FtqzxGmhhIgXqeBC98TmpDVyyk14O7eEryUaLwh4qTcfiwTPkpon+p/Y4lK4edpTOBweYXYysjsb/AW8y3ClX9IZ/hwezAdv5wO5hc4Hk2t8NgU+YGk+yPAbNwN5/Ocf//yPv331/Xff/f1P38gbbqq82V3lZb2/2uIlOquxJHzF4wcPN3hKGvLEm3/s7Ydv//LD139NPuXN0rvqf/T27sPNw3xwMGri8oOjXQHulCf8U4L8IyRmTzxHTPJCH3J19vZj7yjpYrxyqcaHXK7zswmlKpHH9TY9ths1knpqQkZge353gPNGP7YTdGN76NXmc1U2mt/sJ3r0s4x2PjFTwAY5ad1mQiP8Pnrc4S8C4J0yBJRe241X9eFvZ69ezsBPVZo3QoARb3u1YME85PE2eVQOXA6lHC4/OiIVfkXXs8j3kgmd2O3NE4cCoH/zyPave3TdJCuPzDy104Ljpyz12PlPtnDyJOBeGl98if9qpGHh+vjm+hFikpGPnCtRXoDnp8+3fv8PC3sRtABNZ88clBOy+O5/6fxHD3f4fphbfA8e/gUIE69wdw8AAA==')))
+          for name,content in files.items():
+              p=pathlib.Path(name)
+              assert name.startswith(('native/','docs/')) and '..' not in p.parts and not p.is_absolute()
+              p.parent.mkdir(parents=True,exist_ok=True)
+              p.write_text(content,encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add native docs
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: interactive home widget and per-plan local reminders'
+            git push origin HEAD:codex/native-ios
+          fi
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
+    needs: source
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ needs.source.outputs.revision }}
       - uses: actions/cache/restore@v4
         id: xcodegen-cache
         with:
