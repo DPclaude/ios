@@ -38,8 +38,14 @@ struct PlannerWidgetContent: View {
                 }
                 Spacer(minLength: 0)
                 ProgressView(value: Double(projection.completed), total: Double(max(1, projection.total))).tint(.orange)
-                Text(message ?? "点计划直接完成 · 点空白处打开")
-                    .font(.caption2).foregroundStyle(message == nil ? Color.secondary : Color.orange).lineLimit(2)
+                HStack {
+                    Text(message ?? "点计划直接完成 · 点空白处打开")
+                        .font(.caption2).foregroundStyle(message == nil ? Color.secondary : Color.orange).lineLimit(compact ? 1 : 2)
+                    if message != nil {
+                        Button(intent: RefreshPlannerIntent()) { Image(systemName: "arrow.clockwise") }
+                            .buttonStyle(.plain).accessibilityLabel("重试组件同步")
+                    }
+                }
             } else {
                 Text(message ?? "打开计划本，开始今天的计划").font(.subheadline).foregroundStyle(.secondary)
                 Spacer(minLength: 0)

@@ -58,6 +58,22 @@ import PlannerStore
         do { try await model.completeFromWidget(ref, generation: old.generation, day: .today()); XCTFail("stale generation accepted") } catch {}
         XCTAssertEqual(model.snapshot.completedCount, 0)
     }
+    func testYesterdayWidgetCannotCompleteTodaysDailyOccurrence() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let zone = TimeZone(secondsFromGMT: 0)!, yesterday = Day(rawValue: "2026-09-29")!
+        var clock = yesterday.date(timeZone: zone)
+        let store = PlannerFileStore(directory: dir)
+        let model = PlannerViewModel(store: store, now: { clock }, timeZone: { zone })
+        await model.load()
+        model.perform(.add(text: "每天", category: 0, day: yesterday, repeating: true)); await model.flush()
+        let state = try await store.load(), ref = model.snapshot.open[0].reference
+        clock = yesterday.adding(days: 1, timeZone: zone).date(timeZone: zone)
+        do { try await model.completeFromWidget(ref, generation: state.generation, day: yesterday); XCTFail("stale day accepted") } catch {}
+        XCTAssertEqual(model.snapshot.completedCount, 0)
+        XCTAssertEqual(model.snapshot.open.count, 1)
+        await model.flush()
+    }
     func testColdConcurrentLoadsShareOneState() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }

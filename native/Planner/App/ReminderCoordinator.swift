@@ -71,7 +71,13 @@ import PlannerCore
             if self.sequence == revision { self.busy = false }
         }
     }
-    func flush() async { await tail?.value }
+    func flush() async {
+        while true {
+            let revision = sequence
+            await tail?.value
+            if revision == sequence { return }
+        }
+    }
     func refresh() async { enqueue(latest); await flush() }
     private func reconcile(_ document: PlannerDocument) async {
         do {

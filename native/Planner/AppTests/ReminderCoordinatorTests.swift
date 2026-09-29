@@ -1,5 +1,6 @@
 import XCTest
 import PlannerCore
+import PlannerStore
 @testable import Planner
 
 @MainActor private final class MemoryNotificationClient: ReminderNotificationClient {
@@ -16,6 +17,28 @@ import PlannerCore
 }
 
 @MainActor final class ReminderCoordinatorTests: XCTestCase {
+    func testWidgetShowsNotificationFailureAndRefreshRetriesWithoutUndoingCompletion() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let client = MemoryNotificationClient()
+        let queue = ReminderCoordinator(client: client), store = PlannerFileStore(directory: dir)
+        let model = PlannerViewModel(store: store, onSnapshotPersist: { state in queue.enqueue(state.document); return nil })
+        await model.load()
+        model.perform(.add(text: "完成我", category: 0, day: .today(), repeating: false))
+        let ref = model.snapshot.open[0].reference
+        model.perform(.add(text: "保留提醒", category: 0, day: Day.today().adding(days: 1), repeating: false, reminderMinute: 600))
+        await model.flush(); await queue.flush()
+        let state = try await store.load()
+        client.fail = true
+        let error = await WidgetCompletionHandler.complete(ref, generation: state.generation, day: .today(), model: model, reminders: queue)
+        XCTAssertNotNil(error)
+        XCTAssertTrue(model.document.tasks[0].done)
+        client.fail = false
+        let retry = await WidgetCompletionHandler.refresh(model: model, reminders: queue)
+        XCTAssertNil(retry)
+        XCTAssertTrue(model.document.tasks[0].done)
+        XCTAssertEqual(client.requests.values.map(\.text), ["保留提醒"])
+    }
     func testCompletionReconcilesPendingSystemRequestsAndUndoRestores() async {
         let client = MemoryNotificationClient(), zone = TimeZone(secondsFromGMT: 0)!
         let day = Day(rawValue: "2026-09-29")!, now = Day(rawValue: "2026-09-29")!.date(timeZone: zone).addingTimeInterval(-3600 * 12)

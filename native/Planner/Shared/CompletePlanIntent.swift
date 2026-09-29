@@ -23,10 +23,25 @@ struct CompletePlanIntent: LiveActivityIntent {
                   let day = Day(rawValue: day) else { throw WidgetCompletionError.stale }
             let reference = try JSONDecoder().decode(TaskReference.self, from: data)
             let runtime = PlannerRuntime.shared
-            try await runtime.model.completeFromWidget(reference, generation: generation, day: day)
-            await runtime.reminders.flush()
-            PlannerWidgetBridge.setInteractionError(nil)
+            let message = await WidgetCompletionHandler.complete(reference, generation: generation, day: day,
+                                                                  model: runtime.model, reminders: runtime.reminders)
+            PlannerWidgetBridge.setInteractionError(message)
         } catch { PlannerWidgetBridge.setInteractionError(error.localizedDescription) }
+        #endif
+        WidgetCenter.shared.reloadTimelines(ofKind: PlannerWidgetBridge.kind)
+        return .result()
+    }
+}
+
+struct RefreshPlannerIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "重试组件同步"
+    static let openAppWhenRun = false
+    static let isDiscoverable = false
+    @MainActor func perform() async throws -> some IntentResult {
+        #if PLANNER_APP
+        let runtime = PlannerRuntime.shared
+        let message = await WidgetCompletionHandler.refresh(model: runtime.model, reminders: runtime.reminders)
+        PlannerWidgetBridge.setInteractionError(message)
         #endif
         WidgetCenter.shared.reloadTimelines(ofKind: PlannerWidgetBridge.kind)
         return .result()

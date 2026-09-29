@@ -45,7 +45,7 @@ import PlannerStore
         identifier = UIApplication.shared.beginBackgroundTask(withName: "保存计划") { [weak self] in
             Task { @MainActor in self?.finish() }
         }
-        Task { await model.flush(); finish() }
+        Task { await model.flush(); await PlannerRuntime.shared.reminders.flush(); finish() }
     }
     private func finish() {
         guard identifier != .invalid else { return }

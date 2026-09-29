@@ -154,10 +154,15 @@ struct ImportPreview: Identifiable, Sendable {
     }
     func flush() async {
         noteTask?.cancel(); noteTask = nil
-        enqueueSave()
-        await saveTask?.value
+        repeat {
+            enqueueSave()
+            await saveTask?.value
+            // A UI edit may enqueue a newer save while this one suspends.
+            if case .saving = saveState { continue }
+            break
+        } while true
     }
-    func retrySave() async { enqueueSave(force: true); await saveTask?.value }
+    func retrySave() async { enqueueSave(force: true); await flush() }
     func refreshCalendar() async {
         guard canEdit else { return }
         let today = Day.today(now: now(), timeZone: timeZone())
@@ -180,10 +185,20 @@ struct ImportPreview: Identifiable, Sendable {
         } else if !current.completed.contains(where: { $0.reference == reference }) {
             throw WidgetCompletionError.stale
         }
+        try await synchronizeWidget()
+        guard generation == expectedGeneration else { throw WidgetCompletionError.stale }
+    }
+    func synchronizeWidget() async throws {
+        guard canEdit else { throw WidgetCompletionError.unavailable }
+        await refreshCalendar()
         // A retry after a failed disk write must retry persistence, not toggle again.
         if case .failed = saveState { await retrySave() } else { await flush() }
-        if case .failed(let message) = saveState { throw BackupError.invalid("保存：\(message)") }
-        if let widgetMessage { throw BackupError.invalid(widgetMessage) }
+        if case .failed(let message) = saveState { throw WidgetCompletionError.saveFailed(message) }
+        guard saveState == .saved else { throw WidgetCompletionError.unavailable }
+        if widgetMessage != nil {
+            publish(StoreSnapshot(document: document, generation: generation, revision: revision))
+        }
+        if let widgetMessage { throw WidgetCompletionError.saveFailed(widgetMessage) }
     }
     func openSlice() {
         guard canEdit else { return }
@@ -245,11 +260,12 @@ struct ImportPreview: Identifiable, Sendable {
 }
 
 enum WidgetCompletionError: LocalizedError {
-    case unavailable, stale
+    case unavailable, stale, saveFailed(String)
     var errorDescription: String? {
         switch self {
         case .unavailable: return "暂时不能保存，请打开计划本检查。"
         case .stale: return "计划已更新，请稍候重试组件。"
+        case .saveFailed(let message): return message
         }
     }
 }
