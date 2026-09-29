@@ -4,6 +4,20 @@ import PlannerStore
 @testable import Planner
 
 @MainActor final class WidgetCompletionTests: XCTestCase {
+    func testColdWidgetCompletionPublishesOnlyFinalState() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = PlannerFileStore(directory: dir)
+        var doc = PlannerDocument()
+        doc.add(text: "只刷新最终状态", category: 0, day: .today(), id: "one")
+        let saved = try await store.replace(with: doc)
+        var emitted: [Bool] = []
+        let model = PlannerViewModel(store: store, onSnapshotPersist: { snapshot in
+            emitted.append(snapshot.document.tasks[0].done); return nil
+        })
+        try await model.completeFromWidget(.task("one"), generation: saved.generation, day: .today())
+        XCTAssertEqual(emitted, [true], "Cold loading must not publish the unchecked state before completion")
+    }
     func testWidgetAddRouteLoadsColdModelAndChoosesToday() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
