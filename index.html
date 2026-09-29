@@ -8,114 +8,78 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-title" content="计划本">
-<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191d1a" media="(prefers-color-scheme: dark)">
 <link rel="apple-touch-icon" href="icon-180-v3.png">
 <link rel="icon" href="icon-192-v3.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>计划本</title>
 <style>
-:root{
-  color-scheme:light dark;
-  --bg:#f6f5f2; --card:#ffffff; --text:#1c1c1e; --sub:#8a8a8e; --line:#e6e4df;
-  --accent:#2f6fed; --done:#b5b5ba;
-  --c0:#8a8a8e; --c1:#2f6fed; --c2:#e0803a; --c3:#2fa36b;
-  --safe-b:env(safe-area-inset-bottom); --safe-t:env(safe-area-inset-top);
-}
-@media (prefers-color-scheme: dark){
-  :root{ --bg:#161616; --card:#232325; --text:#f2f2f4; --sub:#8e8e93; --line:#333336;
-    --accent:#5b8ff9; --done:#5c5c60; --c1:#5b8ff9; --c2:#f0994f; --c3:#44c486; }
-}
-[hidden]{display:none!important}
+
+:root{color-scheme:light dark;--bg:#f7f5f0;--card:#fffefa;--text:#292d29;--sub:#777c73;--line:#e8e7df;--accent:#c65b34;--soft:#f6e8df;--done:#999e95;--c0:#8b9186;--c1:#6287a2;--c2:#c65b34;--c3:#6e8965;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#191d1a;--card:#242a25;--text:#f1f2e9;--sub:#a4ac9f;--line:#363e36;--accent:#f0a078;--soft:#3a2e26;--done:#90988b;--c0:#9aa58f;--c1:#91b4d2;--c2:#f0a078;--c3:#a2ba8b}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--text);
-  font:16px/1.45 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans",sans-serif;}
-body{min-height:100vh;overscroll-behavior-y:none}
-button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-
-header{position:sticky;top:0;z-index:5;background:var(--bg);
-  padding:calc(var(--safe-t) + 14px) 18px 10px;}
-.top{display:flex;align-items:center;justify-content:space-between}
-.date{font-size:28px;font-weight:700;letter-spacing:.5px}
-.week{color:var(--sub);font-size:15px;margin-top:2px}
-.nav{display:flex;gap:6px;align-items:center}
-.nav button{width:38px;height:38px;border-radius:12px;background:var(--card);
-  font-size:18px;display:grid;place-items:center;border:1px solid var(--line)}
-.nav .today{width:auto;padding:0 12px;font-size:14px;color:var(--accent);font-weight:600}
-.nav .today[hidden]{display:none}
-.progress{height:4px;background:var(--line);border-radius:4px;margin-top:12px;overflow:hidden}
-.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
-
-main{padding:4px 14px calc(110px + var(--safe-b))}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+body{min-height:100dvh;overscroll-behavior-y:none}
+button,input,textarea{font:inherit}button{color:inherit;background:none;border:0;padding:0;cursor:pointer}button,input,textarea{-webkit-appearance:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+button{touch-action:manipulation}button:active{transform:translateY(1px)}
+header,main{max-width:680px;margin:auto}
+header{padding:calc(var(--safe-t) + 25px) 24px 0}
+.brand{display:flex;justify-content:space-between;align-items:center;margin-bottom:27px}
+.brand-name{display:flex;gap:9px;align-items:center;font-size:15px;font-weight:650;letter-spacing:2px}
+.brand-mark{display:grid;place-items:center;width:29px;height:29px;background:var(--accent);color:var(--card);border-radius:10px;font-size:18px;letter-spacing:0}
+.eyebrow{font-size:10px;letter-spacing:2px;color:var(--sub)}
+.menu{width:44px;height:44px;border:1px solid var(--line);border-radius:50%;color:var(--sub);font-size:22px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.date{font-size:34px;font-weight:730;letter-spacing:-1.5px;line-height:1.2}
+.week{color:var(--sub);font-size:13px;margin-top:8px}
+.nav{display:flex;gap:5px;align-items:center}.nav button{width:44px;height:44px;border-radius:50%;font-size:25px;color:var(--sub)}
+.nav .today{width:auto;padding:0 10px;font-size:13px;color:var(--accent);background:var(--soft);border-radius:14px;font-weight:600}
+.week-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:25px 0 20px}
+.day{height:68px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--sub)}
+.day span{font-size:11px}.day strong{font-size:18px;font-weight:600}.day.is-today strong{color:var(--accent)}
+.day.selected{background:var(--text);color:var(--bg);box-shadow:0 5px 12px #1f2a1712}.day.selected strong{color:var(--bg)}
+.summary{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:24px;background:var(--card);padding:21px 22px;display:flex;align-items:center;gap:20px}
+.summary-copy{flex:1}.summary-label{color:var(--sub);font-size:12px;letter-spacing:1px}.summary-title{font-size:21px;letter-spacing:-.5px;font-weight:650;margin:5px 0}.summary-detail{font-size:12px;color:var(--sub)}
+.ring{width:76px;height:76px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--accent) var(--progress,0%),var(--line) 0);transform:rotate(-0deg)}
+.ring-inner{display:flex;flex-direction:column;justify-content:center;align-items:center;width:64px;height:64px;border-radius:50%;background:var(--card)}
+.ring strong{font-size:19px;line-height:1.2}.ring small{font-size:10px;color:var(--sub);margin-top:3px}
+main{padding:24px 24px calc(116px + var(--safe-b))}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.section-title h2{margin:0;font-size:17px;letter-spacing:.2px}.section-title span{font-size:12px;color:var(--sub)}
+.filters{display:flex;gap:7px;margin:0 0 18px;overflow-x:auto;scrollbar-width:none}.filters button{flex:1;white-space:nowrap;border:1px solid var(--line);border-radius:12px;min-height:44px;padding:0 9px;font-size:12px;color:var(--sub)}
+.filters button.active{border-color:var(--accent);color:var(--accent);background:var(--soft);font-weight:650}
 ul{list-style:none;margin:0;padding:0}
-li.task{display:flex;align-items:flex-start;gap:12px;background:var(--card);
-  border-radius:14px;padding:13px 14px;margin-bottom:8px;border:1px solid var(--line)}
-.chk{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--cat,var(--c0));
-  display:grid;place-items:center;margin-top:0}
-.chk svg{width:14px;height:14px;opacity:0}
-li.done .chk{background:var(--cat,var(--c0))}
-li.done .chk svg{opacity:1}
-.body{flex:1;min-width:0}
-.txt{word-break:break-word}
-li.done .txt{color:var(--done);text-decoration:line-through}
-.meta{font-size:12px;color:var(--sub);margin-top:2px}
-.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;
-  background:color-mix(in srgb,var(--c2) 15%,transparent);color:var(--c2);margin-right:6px}
-.empty{text-align:center;color:var(--sub);padding:50px 0 20px;font-size:15px}
-.sec{display:flex;align-items:center;justify-content:space-between;color:var(--sub);
-  font-size:13px;padding:14px 4px 8px}
-.sec button{color:var(--sub);font-size:13px}
-
-.note{width:100%;min-height:74px;resize:none;border:1px solid var(--line);border-radius:14px;
-  background:var(--card);color:var(--text);padding:12px 14px;font:inherit;font-size:15px;outline:none}
-.note::placeholder{color:var(--sub)}
-
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bg);
-  border-top:1px solid var(--line);padding:10px 12px calc(10px + var(--safe-b));
-  display:flex;gap:8px;align-items:center}
-.catbtn{flex:none;width:40px;height:40px;border-radius:12px;background:var(--card);
-  border:1px solid var(--line);display:grid;place-items:center}
-.catbtn span{width:14px;height:14px;border-radius:50%;background:var(--cat)}
-#input{flex:1;min-width:0;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card);
-  color:var(--text);padding:0 12px;font:inherit;font-size:16px;outline:none}
-#input:focus{border-color:var(--accent)}
-.add{flex:none;height:40px;padding:0 14px;border-radius:12px;background:var(--accent);
-  color:#fff;font-weight:600}
-.menu{flex:none;width:40px;height:40px;border-radius:12px;font-size:20px;color:var(--sub)}
-
-.mask{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10;display:none}
-.mask.show{display:block}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;background:var(--card);
-  border-radius:18px 18px 0 0;padding:18px 16px calc(16px + var(--safe-b));
-  transform:translateY(105%);transition:transform .22s ease}
-.sheet.show{transform:none}
-.sheet h3{margin:0 0 12px;font-size:16px}
-.sheet textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:12px;
-  background:var(--bg);color:var(--text);padding:10px 12px;font:inherit;font-size:16px;outline:none;resize:none}
-.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.row button,.row label{flex:1;min-width:30%;height:44px;border-radius:12px;background:var(--bg);
-  border:1px solid var(--line);font-size:15px;display:grid;place-items:center}
-.row .primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.row .danger{color:#e5484d}
-.cats{display:flex;gap:8px;margin-top:12px}
-.cats button{flex:1;height:38px;border-radius:10px;border:1px solid var(--line);
-  display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px}
-.cats button i{width:10px;height:10px;border-radius:50%;background:var(--cat)}
-.cats button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.hint{font-size:12px;color:var(--sub);margin-top:10px;line-height:1.6}
-.toast{position:fixed;left:50%;bottom:calc(80px + var(--safe-b));transform:translateX(-50%);
-  background:var(--text);color:var(--bg);padding:8px 14px;border-radius:10px;font-size:14px;
-  opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}
-.toast.show{opacity:1}
-.update{position:fixed;left:12px;right:12px;top:calc(var(--safe-t) + 8px);z-index:30;
-  background:var(--accent);color:#fff;border-radius:14px;padding:12px 16px;font-weight:600;
-  display:none;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(0,0,0,.18)}
-.update.show{display:flex}
-.ver{font-size:12px;color:var(--sub);text-align:center;margin-top:12px}
+li.task{display:flex;align-items:center;gap:11px;background:var(--card);border-radius:18px;padding:10px 12px 10px 9px;margin-bottom:9px;border:1px solid var(--line);min-height:76px;transition:background .2s}
+.chk{flex:none;width:44px;height:44px;display:grid;place-items:center;position:relative}.chk:before{content:"";width:23px;height:23px;border-radius:50%;border:1.5px solid var(--cat,var(--c0));position:absolute}.chk svg{position:relative;width:14px;height:14px;opacity:0}li.done .chk:before{background:var(--cat,var(--c0));border-color:var(--cat,var(--c0))}li.done .chk svg{opacity:1}
+.body{flex:1;min-width:0;text-align:left;min-height:44px;padding:2px 0}.txt{display:block;word-break:break-word;font-size:15px;line-height:1.5;font-weight:550}li.done{background:transparent;border-color:transparent}li.done .txt{color:var(--done);text-decoration:line-through;font-weight:400}
+.meta{display:block;font-size:11px;color:var(--sub);margin-top:5px;letter-spacing:.1px}.task-arrow{color:var(--line);font-size:20px}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;background:var(--soft);color:var(--accent);margin-right:6px;vertical-align:middle}
+.empty{text-align:center;border:1px dashed var(--line);border-radius:20px;color:var(--sub);padding:30px 14px;font-size:13px}.empty-icon{font-size:26px;color:var(--accent);margin-bottom:8px}.empty strong{display:block;font-size:16px;color:var(--text);font-weight:550;margin-bottom:4px}
+.sec{display:flex;align-items:center;justify-content:space-between;color:var(--sub);font-size:12px;padding:8px 2px}.sec button{color:var(--sub);font-size:12px;min-height:44px;padding:0 8px}
+.note-area{margin-top:28px}.note-area .section-title{margin-bottom:11px}.note{width:100%;min-height:108px;resize:vertical;border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--text);padding:15px 16px;font-size:14px;line-height:1.8}.note::placeholder{color:var(--sub)}
+.footer-note{margin:17px 0 0;text-align:center;color:var(--sub);font-size:10px;letter-spacing:1px}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--bg);border-top:1px solid var(--line);padding:12px max(16px,calc((100vw - 632px)/2)) calc(12px + var(--safe-b));display:flex;gap:8px;align-items:center}
+.catbtn{flex:none;min-width:48px;height:48px;border-radius:15px;background:var(--card);border:1px solid var(--line);display:flex;gap:5px;align-items:center;justify-content:center;padding:0 10px}.catbtn span{width:8px;height:8px;border-radius:50%;background:var(--cat)}.catbtn small{font-size:11px;color:var(--sub)}
+#input{flex:1;min-width:0;height:48px;border-radius:15px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:0 13px;font-size:16px}#input:focus{border-color:var(--accent);outline:none}
+.add{flex:none;width:48px;height:48px;border-radius:15px;background:var(--accent);color:var(--card);font-size:28px;font-weight:350;box-shadow:0 4px 12px #c65b341a}
+.mask{position:fixed;inset:0;background:#10181066;backdrop-filter:blur(4px);z-index:10;display:none}.mask.show{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:680px;margin:auto;z-index:11;background:var(--card);border:1px solid var(--line);border-radius:28px 28px 0 0;padding:14px 22px calc(24px + var(--safe-b));transform:translateY(110%);transition:transform .22s ease;visibility:hidden;max-height:90dvh;overflow-y:auto}
+.sheet.show{transform:none;visibility:visible}.sheet:before{content:"";display:block;width:34px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 18px}.sheet-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.sheet h3{margin:0;font-size:19px}.close-sheet{min-width:44px;min-height:44px;font-size:23px;color:var(--sub)}
+.sheet textarea{width:100%;min-height:92px;border:1px solid var(--line);border-radius:15px;background:var(--bg);color:var(--text);padding:13px;font-size:16px;resize:vertical}.row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.row button,.row label{flex:1;min-width:28%;min-height:48px;border-radius:14px;background:var(--bg);border:1px solid var(--line);font-size:13px;display:grid;place-items:center}.row .primary{background:var(--accent);color:var(--card);border-color:var(--accent);font-weight:600}.row .danger{color:#d0564c}
+.cats{display:flex;gap:7px;margin-top:13px}.cats button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px}.cats button i{width:7px;height:7px;border-radius:50%;background:var(--cat)}.cats button.on{border-color:var(--accent);background:var(--soft);color:var(--accent)}
+.hint{font-size:12px;color:var(--sub);margin-top:17px;line-height:1.8}.ver{font-size:11px;color:var(--sub);text-align:center;margin-top:20px}
+.toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:11px 17px;border-radius:14px;font-size:13px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none;display:flex;gap:18px;align-items:center;white-space:nowrap;max-width:calc(100vw - 24px)}.toast.show{opacity:1;pointer-events:auto}.toast button{color:var(--bg);font-weight:650;text-decoration:underline;min-height:30px}
+.update{position:fixed;left:12px;right:12px;max-width:640px;margin:auto;top:calc(var(--safe-t) + 8px);z-index:30;background:var(--accent);color:var(--card);border-radius:16px;padding:14px 16px;font-size:14px;font-weight:600;display:none;align-items:center;justify-content:space-between;box-shadow:0 6px 20px #0002}.update.show{display:flex}
+@media(min-width:760px){header{padding-top:45px}.date{font-size:40px}.week-strip{gap:15px}.day{height:75px}main{padding-top:30px}.summary{padding:25px}.sheet{bottom:16px;border-radius:28px}.bar{padding-top:16px;padding-bottom:calc(16px + var(--safe-b))}}
+@media(max-width:360px){header{padding-left:16px;padding-right:16px}main{padding-left:16px;padding-right:16px}.date{font-size:29px}.filters{gap:4px}.filters button{padding:0 6px}.eyebrow{letter-spacing:1px}.summary{padding:18px;gap:12px}.ring{width:64px;height:64px}.ring-inner{width:54px;height:54px}.summary-title{font-size:18px}.summary-detail{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 <header>
+  <div class="brand"><div class="brand-name"><span class="brand-mark" aria-hidden="true">✓</span>计划本 <span class="eyebrow">ONE DAY AT A TIME</span></div><button class="menu" id="menuBtn" aria-label="设置">⋯</button></div>
   <div class="top">
     <div>
       <div class="date" id="dateTitle"></div>
@@ -127,33 +91,39 @@ li.done .txt{color:var(--done);text-decoration:line-through}
       <button id="next" aria-label="后一天">›</button>
     </div>
   </div>
-  <div class="progress"><i id="prog"></i></div>
+  <nav class="week-strip" id="weekStrip" aria-label="本周日期"></nav>
+  <section class="summary" aria-label="当天进度">
+    <div class="summary-copy"><div class="summary-label" id="summaryLabel">今天的小步前进</div><div class="summary-title" id="summaryTitle"></div><div class="summary-detail" id="summaryDetail"></div></div>
+    <div class="ring" id="prog" role="progressbar" aria-label="任务完成进度" aria-valuemin="0" aria-valuemax="100"><div class="ring-inner"><strong id="progressText">0%</strong><small>已完成</small></div></div>
+  </section>
 </header>
 
 <main id="main">
-  <ul id="list"></ul>
-  <div class="empty" id="empty">今天还没有计划<br>在下面输入第一件事吧</div>
+  <div class="section-title"><h2>待办清单</h2><span id="openCount"></span></div>
+  <nav class="filters" id="filters" aria-label="按分类筛选"></nav>
+  <ul id="list" aria-label="待办任务"></ul>
+  <div class="empty" id="empty"></div>
   <div class="sec" id="doneHead" hidden>
     <span id="doneCount"></span>
     <button id="toggleDone"></button>
   </div>
-  <ul id="doneList"></ul>
-  <div class="sec"><span>备忘</span></div>
-  <textarea class="note" id="note" placeholder="今天的想法、要记住的事…"></textarea>
+  <ul id="doneList" aria-label="已完成任务"></ul>
+  <section class="note-area"><div class="section-title"><h2>随手记</h2><span>自动保存</span></div>
+  <textarea class="note" id="note" aria-label="当天备忘" placeholder="留一点空间，给今天的想法…"></textarea></section>
+  <p class="footer-note">不必一下做好所有事，先完成眼前这一件。</p>
 </main>
 
 <div class="bar">
-  <button class="catbtn" id="catBtn" aria-label="分类"><span></span></button>
-  <input id="input" placeholder="添加任务，回车保存" enterkeyhint="done" autocomplete="off">
-  <button class="add" id="addBtn">添加</button>
-  <button class="menu" id="menuBtn" aria-label="设置">⋯</button>
+  <button class="catbtn" id="catBtn" aria-label="分类"><span></span><small id="catName">默认</small></button>
+  <input id="input" aria-label="新任务" placeholder="记下一件要做的事…" enterkeyhint="done" autocomplete="off">
+  <button class="add" id="addBtn" aria-label="添加任务">+</button>
 </div>
 
 <div class="mask" id="mask"></div>
 
-<div class="sheet" id="editSheet">
-  <h3>编辑任务</h3>
-  <textarea id="editText"></textarea>
+<div class="sheet" id="editSheet" role="dialog" aria-modal="true" aria-labelledby="editTitle" inert>
+  <div class="sheet-heading"><h3 id="editTitle">编辑任务</h3><button class="close-sheet" id="closeEdit" aria-label="关闭编辑">×</button></div>
+  <textarea id="editText" aria-label="任务内容"></textarea>
   <div class="cats" id="editCats"></div>
   <div class="row">
     <button id="toTop">置顶</button>
@@ -166,8 +136,8 @@ li.done .txt{color:var(--done);text-decoration:line-through}
   </div>
 </div>
 
-<div class="sheet" id="menuSheet">
-  <h3>设置与备份</h3>
+<div class="sheet" id="menuSheet" role="dialog" aria-modal="true" aria-labelledby="menuTitle" inert>
+  <div class="sheet-heading"><h3 id="menuTitle">设置与备份</h3></div>
   <div class="row">
     <button id="exportBtn">导出备份</button>
     <label>导入备份<input type="file" id="importFile" accept=".json,application/json" hidden></label>
@@ -183,13 +153,13 @@ li.done .txt{color:var(--done);text-decoration:line-through}
   <div class="ver" id="verText"></div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn" hidden>撤销</button></div>
 <button class="update" id="updateBar"><span>有新版本 ✨</span><span>点击更新</span></button>
 
 <script>
 (() => {
 const KEY = 'planner-v1';
-const VERSION = '2026.09.29-2';
+const VERSION = '2026.09.29-3';
 const CATS = [
   {name:'默认', color:'var(--c0)'},
   {name:'工作', color:'var(--c1)'},
@@ -244,6 +214,9 @@ let newCat = 0;
 let showDone = true;
 let editing = null;
 let editCat = 0;
+let filterCat = -1;
+let undoAction = null;
+let focusBeforeSheet = null;
 
 // ---------- render ----------
 function render(){
@@ -254,21 +227,58 @@ function render(){
   $('goToday').hidden = cur===t;
 
   const items = repeatItems(cur).concat(db.tasks.filter(k => k.date===cur));
-  const open = items.filter(k=>!k.done).sort((a,b)=>(a.order-b.order));
-  const done = items.filter(k=>k.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  const visible = items.filter(k=>filterCat<0 || (k.cat||0)===filterCat);
+  const open = visible.filter(k=>!k.done).sort((a,b)=>(a.order-b.order));
+  const done = visible.filter(k=>k.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  const totalDone = items.filter(k=>k.done).length;
+  const percent = items.length ? Math.round(totalDone/items.length*100) : 0;
+  $('summaryLabel').textContent = cur===t ? '今天的小步前进' : '这一天的小步前进';
+  $('summaryTitle').textContent = !items.length ? '从一件小事开始' : totalDone===items.length ? '都完成了，做得不错' : '还有 '+(items.length-totalDone)+' 件小事';
+  $('summaryDetail').textContent = items.length ? '共 '+items.length+' 项计划 · 已完成 '+totalDone+' 项' : '给重要的事，留一点时间。';
+  $('prog').style.setProperty('--progress', percent+'%');
+  $('prog').setAttribute('aria-valuenow', percent);
+  $('progressText').textContent = percent+'%';
+  $('openCount').textContent = open.length+' 项待办';
+  drawWeek(); drawFilters();
 
   $('list').innerHTML = ''; $('doneList').innerHTML = '';
   open.forEach(k => $('list').appendChild(item(k)));
   if (showDone) done.forEach(k => $('doneList').appendChild(item(k)));
 
-  $('empty').hidden = items.length>0;
+  $('empty').hidden = open.length>0;
+  $('empty').innerHTML = done.length ? '<div class="empty-icon" aria-hidden="true">✓</div><strong>这一页的待办都完成了</strong>歇一歇，也是一种进步。' : '<div class="empty-icon" aria-hidden="true">＋</div><strong>'+(filterCat<0 ? '给这一天一个小目标' : '这个分类还没有计划')+'</strong>在下方记下第一件事吧。';
   $('doneHead').hidden = done.length===0;
   $('doneCount').textContent = '已完成 '+done.length;
   $('toggleDone').textContent = showDone ? '收起' : '展开';
-  $('prog').style.width = items.length ? (done.length/items.length*100)+'%' : '0';
+
 
   $('note').value = db.notes[cur] || '';
   $('catBtn').style.setProperty('--cat', CATS[newCat].color);
+  $('catName').textContent = CATS[newCat].name;
+  $('catBtn').setAttribute('aria-label', '新任务分类：'+CATS[newCat].name+'，点击切换');
+}
+
+function drawWeek(){
+  const start = shift(cur, -((parse(cur).getDay()+6)%7));
+  $('weekStrip').innerHTML = '';
+  for(let i=0;i<7;i++){
+    const date = shift(start,i), d = parse(date), b = document.createElement('button');
+    b.className = 'day'+(date===cur?' selected':'')+(date===todayStr()?' is-today':'');
+    b.setAttribute('aria-label', (d.getMonth()+1)+'月'+d.getDate()+'日 '+WEEK[d.getDay()]);
+    b.setAttribute('aria-pressed', String(date===cur));
+    b.innerHTML = '<span>'+(date===todayStr()?'今天':WEEK[d.getDay()])+'</span><strong>'+d.getDate()+'</strong>';
+    b.onclick = () => { cur=date; render(); }; $('weekStrip').appendChild(b);
+  }
+}
+function drawFilters(){
+  $('filters').innerHTML = '';
+  [{name:'全部'},...CATS].forEach((c,i)=>{
+    const cat=i-1,b=document.createElement('button');
+    b.textContent=c.name; b.className=cat===filterCat?'active':'';
+    b.setAttribute('aria-pressed',String(cat===filterCat));
+    b.onclick=()=>{filterCat=cat;if(cat>=0)newCat=cat;render();};
+    $('filters').appendChild(b);
+  });
 }
 
 function item(k){
@@ -279,11 +289,11 @@ function item(k){
   if (k.repeat) meta.push('每天');
   if (k.cat) meta.push(CATS[k.cat].name);
   li.innerHTML = `
-    <button class="chk" aria-label="完成"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
-    <div class="body">
-      <div class="txt">${k.rolled && !k.done ? '<span class="tag">顺延</span>':''}${esc(k.text)}</div>
-      ${meta.length? `<div class="meta">${meta.join(' · ')}</div>`:''}
-    </div>`;
+    <button class="chk" aria-label="${k.done ? '标为未完成' : '完成任务'}：${esc(k.text)}" aria-pressed="${k.done}"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="body" aria-label="编辑：${esc(k.text)}">
+      <span class="txt">${k.rolled && !k.done ? '<span class="tag">顺延</span>':''}${esc(k.text)}</span>
+      ${meta.length? `<span class="meta">${meta.join(' · ')}</span>`:''}
+    </button><span class="task-arrow" aria-hidden="true">›</span>`;
   li.querySelector('.chk').onclick = e => { e.stopPropagation(); toggle(k); };
   li.querySelector('.body').onclick = () => openEdit(k);
   return li;
@@ -297,6 +307,7 @@ function add(){
   const orders = db.tasks.filter(k=>k.date===cur).map(k=>k.order);
   db.tasks.push({id:uid(), text, date:cur, done:false, cat:newCat, order:(orders.length?Math.max(...orders):0)+1});
   $('input').value = '';
+  if(filterCat>=0 && filterCat!==newCat)filterCat=newCat;
   save(); render();
 }
 function toggle(k){
@@ -345,11 +356,15 @@ $('saveBtn').onclick = () => {
 };
 $('delBtn').onclick = () => {
   if (!editing) return;
-  if (editing.repeat){
-    if (!confirm('删除这个每天重复的任务？')) return;
-    db.repeats = db.repeats.filter(r=>r.id!==editing.rid);
-  } else db.tasks = db.tasks.filter(x=>x.id!==editing.id);
-  save(); close(); render(); toast('已删除');
+  const repeated = editing.repeat;
+  const removed = findEditing(); if(!removed)return;
+  if (repeated) db.repeats = db.repeats.filter(r=>r.id!==editing.rid);
+  else db.tasks = db.tasks.filter(x=>x.id!==editing.id);
+  save(); close(); render();
+  toast(repeated ? '已删除重复任务' : '已删除任务', () => {
+    (repeated ? db.repeats : db.tasks).push(removed);
+    rollover(); save(); render();
+  });
 };
 $('toTop').onclick = () => {
   const t = findEditing(); if (!t) return;
@@ -408,13 +423,38 @@ $('importFile').onchange = e => {
 };
 
 // ---------- sheets ----------
-function open(id){ $('mask').classList.add('show'); $(id).classList.add('show'); }
-function close(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show')); $('mask').classList.remove('show'); editing=null; }
+function open(id){
+  focusBeforeSheet=document.activeElement;
+  $('mask').classList.add('show'); $(id).inert=false; $(id).classList.add('show');
+  document.querySelectorAll('header,main,.bar').forEach(el=>el.inert=true);
+  $(id).querySelector('button,textarea').focus();
+}
+function close(){
+  document.querySelectorAll('.sheet').forEach(s=>{s.classList.remove('show');s.inert=true;});
+  document.querySelectorAll('header,main,.bar').forEach(el=>el.inert=false);
+  $('mask').classList.remove('show'); editing=null;
+  if(focusBeforeSheet && focusBeforeSheet.isConnected)focusBeforeSheet.focus();
+}
+$('closeEdit').onclick=close;
+document.addEventListener('keydown',e=>{
+  const sheet=document.querySelector('.sheet.show'); if(!sheet)return;
+  if(e.key==='Escape'){close();return;}
+  if(e.key!=='Tab')return;
+  const elements=[...sheet.querySelectorAll('button,textarea,input,[tabindex="0"]')].filter(el=>!el.hidden && el.offsetParent!==null);
+  const first=elements[0],last=elements[elements.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+});
 $('mask').onclick = close;
 
 // ---------- misc ui ----------
 let tt;
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }
+function toast(msg,undo){
+  const t=$('toast'); $('toastText').textContent=msg; undoAction=undo||null; $('undoBtn').hidden=!undo;
+  t.classList.add('show'); clearTimeout(tt);
+  tt=setTimeout(()=>{t.classList.remove('show');undoAction=null;$('undoBtn').hidden=true;},undo?7000:2200);
+}
+$('undoBtn').onclick=()=>{if(!undoAction)return;const action=undoAction;undoAction=null;action();toast('已恢复任务');};
 
 $('addBtn').onclick = () => { add(); $('input').focus(); };
 $('input').addEventListener('keydown', e => { if (e.key==='Enter' && !e.isComposing){ e.preventDefault(); add(); } });
@@ -460,8 +500,8 @@ async function checkUpdate(manual){
 $('updateBar').onclick = async () => {
   $('updateBar').querySelector('span').textContent = '更新中…';
   try{
-    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
-    if (navigator.serviceWorker){ const rs = await navigator.serviceWorker.getRegistrations(); for (const x of rs) await x.update(); }
+    if (window.caches) for (const k of await caches.keys()) if(k.startsWith('planner-'))await caches.delete(k);
+    if (navigator.serviceWorker){ const r = await navigator.serviceWorker.getRegistration(new URL('./',location.href)); if(r)await r.update(); }
   }catch(e){}
   location.replace(location.pathname + '?v=' + Date.now());
 };
