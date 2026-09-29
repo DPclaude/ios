@@ -1,15 +1,23 @@
 # 原生计划本验收记录
 
-设备：iPhone 14 Pro。系统：iOS 27.0。用户提供，尚未远程读取设备。
+目标设备：iPhone 14 Pro / iOS 27.0（用户提供，未读取真机）。用户尚未安装 SideStore。
 
 ## 云端
 
 | 项目 | 结果 |
 |---|---|
-| 业务模块回归 | 首次 8 项通过：[运行 2](https://github.com/DPclaude/ios/actions/runs/36508862078) |
-| 存储保护测试 | 等待当前实现的云端结果 |
-| iOS 状态与 UI 测试 | 待运行 |
-| 真机 Release 编译与 IPA 校验 | 待运行 |
+| 业务与存储 | 14 项通过，0 失败 |
+| iOS 状态 | 10 项通过，含编辑草稿转重复、跨午夜编辑回归 |
+| 原生 UI | 3 项通过：连续添加/筛选/切日/编辑；完成/删除/撤销/重开；深色/大字体 |
+| iOS XCTest 汇总 | 13 项通过，0 失败，0 跳过 |
+| 真机 Release 编译与 IPA 校验 | 成功；arm64、Bundle ID 和 ZIP 完整性检查通过 |
+| 原网页版回归 | Windows 本地 `node --test tests/planner.test.cjs`：5 项通过 |
+
+验证日期：2026-09-29。[完整成功运行 #13](https://github.com/DPclaude/ios/actions/runs/36516948018)，源码 `0e9a390c6e574821301f7a738436a0c260e53efd`。构建工具 Xcode 26.6，测试设备 iPhone 17 Pro 模拟器 / iOS 26.5。后续验收文档修改不改变该版本原生代码。
+
+[下载 Planner-native-13](https://github.com/DPclaude/ios/actions/runs/36516948018/artifacts/11011159563)（可能需要登录 GitHub）。归档包含 `Planner-unsigned.ipa`、校验文件、测试报告和测试截图；保留 7 天。过期后在 Native iOS 工作流重新运行生成。App 版本 1.0.0，构建号 13。该 IPA 尚未签名，按 [Windows / SideStore 安装指南](ios-install.md)安装。
+
+本次云端验证通过，不代表已在用户手机安装、完成续签或测得固定帧率。
 
 ## 手机端
 
