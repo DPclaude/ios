@@ -58,9 +58,5 @@ jobs:
           unzip -t "$RELEASE_DIR/Planner.ipa"
           sha256sum "$RELEASE_DIR/Planner.ipa"
           TAG="native-v$VERSION"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo 'Release already exists; refusing to overwrite.'
-            exit 1
-          fi
-          gh release create "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json" \
-            --target cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c --title "计划本 $VERSION" --notes-file "$RELEASE_DIR/release-notes.md" --latest
+          gh release view "$TAG" --json tagName,isDraft
+          gh release upload "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json"
