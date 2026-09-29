@@ -1,62 +1,102 @@
 name: Native iOS
 on:
   push:
-    branches: [codex/native-ios]
-    paths: ['.github/workflows/ios-native.yml']
+    branches: [main, codex/native-ios]
+    paths: ['native/**', '.github/workflows/ios-native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/ios-native.yml']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified v1.1.0 to SideStore
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency:
+  group: native-ios-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  publish-verified-build-27:
-    if: github.ref == 'refs/heads/codex/native-ios'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
+  verify:
+    runs-on: macos-26
+    timeout-minutes: 30
     env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - name: Verify the exact tested source
-        shell: bash
-        run: |
-          gh api repos/$GH_REPO/actions/runs/36528615241 > run.json
-          gh api repos/$GH_REPO/actions/runs/36528615241/jobs > jobs.json
-          python3 - <<'PY'
-          import json
-          r=json.load(open('run.json')); j=json.load(open('jobs.json'))
-          assert r['head_sha']=='cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c'
-          assert r['head_branch']=='codex/native-ios' and r['event']=='push'
-          v=[x for x in j['jobs'] if x['name']=='verify']
-          assert len(v)==1 and v[0]['conclusion']=='success'
-          print('Verified source and completed test/build job for build 27.')
-          PY
       - uses: actions/checkout@v6.0.2
+      - uses: actions/cache/restore@v4
+        id: xcodegen-cache
         with:
-          ref: cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c
-          persist-credentials: false
-      - name: Download the tested artifact
-        run: gh run download 36528615241 --name Planner-native-27 --dir dist
-      - name: Locate and publish verified assets
+          path: native/Planner/build/XcodeGen
+          key: xcodegen-2.46.0-macos26-xcode26.6-v1
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl boot "iPhone 17 Pro"
+      - name: Release metadata tests
+        run: node --test native/Planner/scripts/release-metadata.test.mjs
+      - name: Core tests
+        run: swift test --package-path native/Planner
+      - name: iOS tests and IPA
         shell: bash
         run: |
-          mapfile -t IPAS < <(find dist -type f -name Planner-unsigned.ipa)
-          test "${#IPAS[@]}" -eq 1
-          export IPA="${IPAS[0]}"
-          VERSION=$(python3 - <<'PY'
-          import os,zipfile,plistlib
-          with zipfile.ZipFile(os.environ['IPA']) as z:
-              for path in ['Payload/Planner.app/Info.plist','Payload/Planner.app/PlugIns/PlannerWidget.appex/Info.plist']:
-                  p=plistlib.loads(z.read(path))
-                  assert p['CFBundleShortVersionString']=='1.1.0' and p['CFBundleVersion']=='27',p
-          print('1.1.0')
-          PY
-          )
-          node --test native/Planner/scripts/release-metadata.test.mjs
-          node native/Planner/scripts/release-metadata.mjs "$VERSION" "$IPA" distribution
-          RELEASE_DIR=distribution
-          cmp "$IPA" "$RELEASE_DIR/Planner.ipa"
-          unzip -t "$RELEASE_DIR/Planner.ipa"
-          sha256sum "$RELEASE_DIR/Planner.ipa"
+          cd native/Planner
+          xcrun simctl bootstatus "iPhone 17 Pro" -b
+          bash scripts/ci-test.sh
+          bash scripts/build-ipa.sh
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/package/Payload/Planner.app/Info.plist)
+          node scripts/release-metadata.mjs "$VERSION" build/Planner-unsigned.ipa build/distribution
+      - name: Upload required release assets
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: Planner-release-${{ github.run_number }}
+          path: native/Planner/build/distribution/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/cache/save@v4
+        if: always() && steps.xcodegen-cache.outputs.cache-hit != 'true'
+        with:
+          path: native/Planner/build/XcodeGen
+          key: xcodegen-2.46.0-macos26-xcode26.6-v1
+      - uses: actions/upload-artifact@v7.0.0
+        if: always()
+        with:
+          name: Planner-native-${{ github.run_number }}
+          path: |
+            native/Planner/build/*.ipa
+            native/Planner/build/*.sha256
+            native/Planner/build/*.xcresult
+            native/Planner/build/screenshots/
+            native/Planner/build/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    if: github.ref == 'refs/heads/codex/native-ios' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish native]')))
+    needs: verify
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: Planner-release-${{ github.run_number }}
+          path: dist
+      - name: Publish tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          mapfile -t MANIFESTS < <(find dist -type f -name planner-update.json)
+          test "${#MANIFESTS[@]}" -eq 1
+          RELEASE_DIR=$(dirname "${MANIFESTS[0]}")
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" "$RELEASE_DIR/planner-update.json")
           TAG="native-v$VERSION"
-          gh release view "$TAG" --json tagName,isDraft
-          gh release upload "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo 'Version already published; increment MARKETING_VERSION before publishing again.'
+            exit 1
+          fi
+          gh release create "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json" \
+            --target "$GITHUB_SHA" --title "计划本 $VERSION" --notes-file "$RELEASE_DIR/release-notes.md" --latest
