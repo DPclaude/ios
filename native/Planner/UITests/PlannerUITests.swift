@@ -51,15 +51,21 @@ import XCTest
         let field = app.textViews["taskText"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap(); field.typeText("第一件事")
-        app.buttons["dismissKeyboard"].tap()
+        if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
         let keepAdding = app.switches["保存后继续添加"]
+        for _ in 0..<4 where !keepAdding.isHittable || keepAdding.frame.maxY > app.frame.maxY - 40 { app.swipeUp() }
+        XCTAssertTrue(keepAdding.isHittable, app.debugDescription)
+        print("CONTINUE_ADD_SWITCH", keepAdding.debugDescription)
         keepAdding.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(keepAdding.value as? String, "1")
         app.buttons["saveTask"].tap()
         XCTAssertTrue(field.waitForExistence(timeout: 3))
         XCTAssertEqual(field.value as? String, "")
         field.tap(); field.typeText("第二件事")
-        app.buttons["dismissKeyboard"].tap()
+        if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
+        for _ in 0..<4 where !keepAdding.isHittable || keepAdding.frame.maxY > app.frame.maxY - 40 { app.swipeUp() }
+        XCTAssertTrue(keepAdding.isHittable, app.debugDescription)
+        print("CONTINUE_ADD_SWITCH", keepAdding.debugDescription)
         keepAdding.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(keepAdding.value as? String, "0")
         app.buttons["saveTask"].tap()
