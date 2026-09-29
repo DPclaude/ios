@@ -16,7 +16,7 @@
 
 ## 2. 获取安装包
 
-在仓库的 [Actions](https://github.com/DPclaude/ios/actions/workflows/ios-native.yml) 中打开成功的 Native iOS 运行，在 Artifacts 下载 `Planner-native-构建号`，解压得到 `Planner-unsigned.ipa`。开发阶段分支为 `codex/native-ios`。
+在 [最新版发布页](https://github.com/DPclaude/ios/releases/latest) 的 Assets 下载 `Planner.ipa`，无需解压。开发分支为 `codex/native-ios`。后续可在设置添加 SideStore 更新源；见 [桌面组件和更新说明](ios-widget-update-guide.md)。
 
 这是待签名的真机安装包，不是模拟器 App。请交给 SideStore 安装；直接在“文件”中点击并不能安装。不要把测试失败运行的日志归档当成安装包。
 
@@ -26,7 +26,7 @@
 
 需要你在自己设备／官方工具里完成：连接 iPhone、信任电脑、Apple 账户登录及双重认证、必要的开发者模式和本地 VPN 授权。不要将密码、验证码或配对文件发到聊天、仓库或 GitHub Actions。
 
-安装完成后，在 SideStore 中导入 `Planner-unsigned.ipa`，用你的个人账户签名。免费账户通常最多同时安装 3 个这类应用，SideStore 本身占用一个；已有侧载 App 时先查看可用名额，不擅自删除已有应用。
+安装完成后，在 SideStore 中导入 `Planner.ipa`，用你的个人账户签名。免费账户通常最多同时安装 3 个这类应用，SideStore 本身占用一个；已有侧载 App 时先查看可用名额，不擅自删除已有应用。
 
 ### 首次安装 SideStore 的操作顺序（你已安装，可跳过）
 
