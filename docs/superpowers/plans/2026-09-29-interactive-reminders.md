@@ -21,15 +21,15 @@
 
 ### Task 1: Native data and interactions
 Files: Core Models/ReminderSchedule/WidgetProjection, Store WidgetArchive, App PlannerRuntime/PlannerViewModel, Shared CompletePlanIntent/Bridge/Content, Widget provider, project.yml.
-- [ ] Add tests for reminder JSON roundtrip/validation, date projections, idempotent widget completion, stale generation/day and failed persistence.
-- [ ] Run cloud RED (`swift test --package-path native/Planner`, iOS XCTest); record expected missing-feature failures.
-- [ ] Add optional reminderMinute with backup validation and conversion preservation; deterministic 30-day/60-entry schedule.
-- [ ] Add single runtime, generation-bearing widget archive, background intent with awaited persistence and source-date guard.
-- [ ] Run Core and app-state suites GREEN; commit.
+- [x] Add tests for reminder JSON roundtrip/validation, date projections, idempotent widget completion, stale generation/day and failed persistence.
+- [x] Run cloud RED (`swift test --package-path native/Planner`, iOS XCTest); record expected missing-feature failures.
+- [x] Add optional reminderMinute with backup validation and conversion preservation; deterministic 30-day/60-entry schedule.
+- [x] Add single runtime, generation-bearing widget archive, background intent with awaited persistence and source-date guard.
+- [x] Run Core and app-state suites GREEN; commit.
 
 ### Task 2: Notifications and usable UI
 Files: App ReminderCoordinator, editor/settings, tests and docs.
-- [ ] Add reminder UI test and coordinator reconciliation tests using a notification-client seam.
-- [ ] Add serialized notification reconciliation after saved snapshots, permission and failure feedback, settings and editor controls.
-- [ ] Verify full suite, package embedded widget, validate IPA version/intent metadata; fresh reviewer and important fixes.
-- [ ] Publish verified 1.2.0 IPA/SideStore metadata, update beginner instructions; keep draft PR; report device-only checks accurately.
+- [x] Add reminder UI test and coordinator reconciliation tests using a notification-client seam.
+- [x] Add serialized notification reconciliation after saved snapshots, permission and failure feedback, settings and editor controls.
+- [x] Verify full suite, package embedded widget, validate IPA version/intent metadata; fresh reviewer and important fixes.
+- [x] Publish verified 1.2.0 IPA/SideStore metadata, update beginner instructions; keep draft PR; report device-only checks accurately.
