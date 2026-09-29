@@ -7,16 +7,43 @@ import PlannerStore
     var requests: [String: ReminderEntry] = [:]
     var denied = false
     var fail = false
+    var additions = 0
     func permission(request: Bool) async throws -> Bool { !denied }
     func pendingIDs() async -> [String] { Array(requests.keys) }
+    func pendingSignatures() async -> [String: String] { requests.mapValues(\.notificationSignature) }
     func remove(_ ids: [String]) { for id in ids { requests.removeValue(forKey: id) } }
     func add(_ entry: ReminderEntry) async throws {
+        additions += 1
         if fail { throw NSError(domain: "ScheduleFailure", code: 1) }
         requests[entry.id] = entry
     }
 }
 
 @MainActor final class ReminderCoordinatorTests: XCTestCase {
+    func testUnchangedRemindersAreNotResubmittedButEditsAndMissingRequestsAre() async {
+        let client = MemoryNotificationClient()
+        let coordinator = ReminderCoordinator(client: client)
+        var doc = PlannerDocument()
+        doc.repeats = [RepeatRule(id: "r", text: "每日", from: Day.today().rawValue, reminderMinute: 600)]
+        coordinator.enqueue(doc); await coordinator.flush()
+        let initial = client.additions
+        XCTAssertGreaterThan(initial, 0)
+        coordinator.enqueue(doc); await coordinator.flush()
+        XCTAssertEqual(client.additions, initial)
+        client.requests.removeValue(forKey: client.requests.keys.sorted()[0])
+        coordinator.enqueue(doc); await coordinator.flush()
+        XCTAssertEqual(client.additions, initial + 1)
+        doc.repeats[0].text = "修改后的每日任务"
+        coordinator.enqueue(doc); await coordinator.flush()
+        XCTAssertEqual(Set(client.requests.values.map(\.text)), ["修改后的每日任务"])
+        XCTAssertGreaterThan(client.additions, initial + 1)
+    }
+    func testNotificationTitleContainsActualTaskText() {
+        let entry = ReminderEntry(id: "test", text: "带好证件", day: .today(), date: .now, reference: .task("test"))
+        let content = SystemReminderClient.content(for: entry)
+        XCTAssertEqual(content.title, "带好证件")
+        XCTAssertEqual(content.userInfo["plannerSignature"] as? String, entry.notificationSignature)
+    }
     func testWidgetShowsNotificationFailureAndRefreshRetriesWithoutUndoingCompletion() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -29,6 +56,7 @@ import PlannerStore
         model.perform(.add(text: "保留提醒", category: 0, day: Day.today().adding(days: 1), repeating: false, reminderMinute: 600))
         await model.flush(); await queue.flush()
         let state = try await store.load()
+        client.requests.removeAll() // A missing request must still be retried after differential scheduling.
         client.fail = true
         let error = await WidgetCompletionHandler.complete(ref, generation: state.generation, day: .today(), model: model, reminders: queue)
         XCTAssertNotNil(error)

@@ -2,7 +2,7 @@ import SwiftUI
 import PlannerCore
 
 enum PlannerCategory {
-    static let names = ["默认", "工作", "私事", "学习"]
+    static let names = ["", "工作", "私事", "学习"]
     static func color(_ value: Int) -> Color { [.secondary, .blue, .pink, .green][value] }
 }
 
@@ -22,10 +22,11 @@ struct TaskRow: View {
             .accessibilityIdentifier("toggle-\(item.text)")
             Button(action: edit) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(item.text).font(.body).foregroundStyle(item.done ? .secondary : .primary)
+                    Text(item.text).font(.body).foregroundStyle(item.done ? Color.secondary : (item.important ? .red : .primary))
                         .strikethrough(item.done).multilineTextAlignment(.leading)
                     HStack(spacing: 10) {
-                        Text(PlannerCategory.names[item.cat]).foregroundStyle(PlannerCategory.color(item.cat))
+                        if item.important { Label("重要", systemImage: "exclamationmark").foregroundStyle(.red) }
+                        if item.cat > 0 { Text(PlannerCategory.names[item.cat]).foregroundStyle(PlannerCategory.color(item.cat)) }
                         if item.reference.isRepeating { Label("每天", systemImage: "repeat") }
                         if item.rolled { Label("顺延", systemImage: "arrow.turn.down.right") }
                     }.font(.caption).foregroundStyle(.secondary)

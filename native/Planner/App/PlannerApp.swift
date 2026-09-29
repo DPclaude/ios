@@ -16,8 +16,7 @@ import PlannerStore
                 .tint(.orange)
                 .task { await model.load() }
                 .onOpenURL { url in
-                    guard url.scheme == "planner", url.host == "slice" else { return }
-                    Task { await model.load(); await model.refreshCalendar(); model.openSlice() }
+                    Task { await model.handleURL(url) }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await model.refreshCalendar(); await PlannerRuntime.shared.reminders.refresh() } }

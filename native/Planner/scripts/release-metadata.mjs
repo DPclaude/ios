@@ -26,7 +26,7 @@ export function releaseMetadata({ version, ipa, notes, date = new Date().toISOSt
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [version, ipa, output = 'build/distribution'] = process.argv.slice(2);
-  const notes = '新增桌面直接点勾完成、逐条计划提醒时间与本地通知。完成后取消对应提醒。保留全屏划切与 SideStore 更新。更新时保留小组件扩展，首次设置提醒请允许通知。';
+  const notes = '桌面小圆圈支持即时勾选反馈，完成项分组保留在下方；点组件空白处新增计划。App 内拖动排序同步组件，重要计划显示红字。移除默认分类选项和组件底部说明、进度条，提醒设置提前，通知直接显示任务内容，减少重复安排提醒。更新时保留小组件扩展，并打开 App 一次。';
   const { source, update } = releaseMetadata({ version, ipa, notes });
   mkdirSync(output, { recursive: true });
   copyFileSync(ipa, join(output, 'Planner.ipa'));

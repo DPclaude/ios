@@ -161,9 +161,9 @@ private struct SliceCard: View {
     private var cardContent: some View {
         HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(item.text).font(.title3.weight(.semibold)).lineLimit(3).minimumScaleFactor(0.85)
+                Text(item.text).font(.title3.weight(.semibold)).foregroundStyle(item.important ? Color.red : .primary).lineLimit(3).minimumScaleFactor(0.85)
                 HStack {
-                    Text(PlannerCategory.names[item.cat])
+                    if item.cat > 0 { Text(PlannerCategory.names[item.cat]) }
                     if item.reference.isRepeating { Image(systemName: "repeat") }
                     Spacer()
                     Image(systemName: "arrow.left.and.right")

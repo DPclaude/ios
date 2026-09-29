@@ -6,6 +6,7 @@ import PlannerCore
 @MainActor protocol ReminderNotificationClient {
     func permission(request: Bool) async throws -> Bool
     func pendingIDs() async -> [String]
+    func pendingSignatures() async -> [String: String]
     func remove(_ ids: [String])
     func add(_ entry: ReminderEntry) async throws
 }
@@ -29,10 +30,20 @@ import PlannerCore
         center.removePendingNotificationRequests(withIdentifiers: ids)
         center.removeDeliveredNotifications(withIdentifiers: ids)
     }
-    func add(_ entry: ReminderEntry) async throws {
+    func pendingSignatures() async -> [String: String] {
+        let requests = await center.pendingNotificationRequests()
+        return Dictionary(uniqueKeysWithValues: requests.map {
+            ($0.identifier, $0.content.userInfo["plannerSignature"] as? String ?? "")
+        })
+    }
+    static func content(for entry: ReminderEntry) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
-        content.title = "计划本提醒"; content.body = entry.text; content.sound = .default
-        content.userInfo = ["day": entry.day.rawValue]
+        content.title = entry.text; content.body = "计划提醒"; content.sound = .default
+        content.userInfo = ["day": entry.day.rawValue, "plannerSignature": entry.notificationSignature]
+        return content
+    }
+    func add(_ entry: ReminderEntry) async throws {
+        let content = Self.content(for: entry)
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .current
         var components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: entry.date)
         components.calendar = calendar; components.timeZone = calendar.timeZone
@@ -87,7 +98,10 @@ import PlannerCore
             let identifiers = Set(desired.map(\.id))
             let obsolete = await client.pendingIDs().filter { !identifiers.contains($0) }
             client.remove(obsolete)
-            for entry in desired { try await client.add(entry) }
+            let signatures = await client.pendingSignatures()
+            for entry in desired where signatures[entry.id] != entry.notificationSignature {
+                try await client.add(entry)
+            }
             errorMessage = nil
             if !authorized {
                 summary = "通知尚未允许。计划和提醒时间已保存，请开启系统通知权限。"

@@ -5,7 +5,7 @@ import PlannerStore
 
 enum PlannerWidgetBridge {
     static let kind = "PlannerToday"
-    static let deepLink = URL(string: "planner://slice")!
+    static let deepLink = URL(string: "planner://add")!
     private static var errorURL: URL? { archiveURL?.deletingLastPathComponent().appendingPathComponent("widget-interaction-error.txt") }
     static var interactionError: String? { errorURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) } }
     static func setInteractionError(_ message: String?) {

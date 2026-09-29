@@ -15,11 +15,13 @@ struct TaskEditor: View {
     @State private var confirmCancelRepeat = false
     @State private var reminderEnabled: Bool
     @State private var reminderTime: Date
+    @State private var important: Bool
     @FocusState private var focused: Bool
     init(model: PlannerViewModel, item: TaskItem?) {
         self.model = model; self.item = item
         _originalDay = State(initialValue: model.selectedDay)
         _text = State(initialValue: item?.text ?? "")
+        _important = State(initialValue: item?.important ?? false)
         _category = State(initialValue: item?.cat ?? model.category ?? 0)
         _date = State(initialValue: model.selectedDay.date())
         let minute = item.flatMap { model.document.reminderMinute(for: $0.reference) }
@@ -30,20 +32,10 @@ struct TaskEditor: View {
         NavigationStack {
             Form {
                 Section("计划内容") {
-                    TextEditor(text: $text).frame(minHeight: 100).focused($focused)
+                    TextEditor(text: $text).frame(minHeight: 72).focused($focused)
+                        .foregroundStyle(important ? Color.red : .primary)
                         .accessibilityLabel("计划内容").accessibilityIdentifier("taskText")
-                }
-                Section {
-                    Picker("分类", selection: $category) { ForEach(0..<4) { Text(PlannerCategory.names[$0]).tag($0) } }
-                    if item?.reference.isRepeating != true {
-                        DatePicker("日期", selection: $date, displayedComponents: .date)
-                    }
-                    if item == nil {
-                        Toggle("每天重复", isOn: $repeating)
-                        Toggle("保存后继续添加", isOn: $keepAdding)
-                    }
-                } footer: {
-                    if item?.reference.isRepeating == true { Text("这是每日计划。修改内容和分类会应用到整条重复规则。") }
+                    Toggle("重要计划", isOn: $important).tint(.red).accessibilityIdentifier("importantToggle")
                 }
                 Section {
                     Toggle("提醒我", isOn: $reminderEnabled).accessibilityIdentifier("reminderToggle")
@@ -57,6 +49,27 @@ struct TaskEditor: View {
                     }
                 } header: { Text("通知提醒") } footer: {
                     Text(item?.reference.isRepeating == true || repeating ? "每天在此时间提醒，完成当天计划后取消当天提醒。" : "在计划日期的这个时间提醒。已过去的时间不会补发；完成后取消提醒。")
+                }
+                Section("分类") {
+                    HStack(spacing: 12) {
+                        ForEach(1..<4) { value in
+                            Button { category = category == value ? 0 : value } label: {
+                                Text(PlannerCategory.names[value]).frame(maxWidth: .infinity).padding(.vertical, 10)
+                                    .foregroundStyle(category == value ? Color.white : PlannerCategory.color(value))
+                                    .background(category == value ? PlannerCategory.color(value) : PlannerCategory.color(value).opacity(0.1), in: Capsule())
+                            }.buttonStyle(.plain)
+                                .accessibilityAddTraits(category == value ? .isSelected : [])
+                        }
+                    }
+                }
+                Section {
+                    if item?.reference.isRepeating != true { DatePicker("日期", selection: $date, displayedComponents: .date) }
+                    if item == nil {
+                        Toggle("每天重复", isOn: $repeating)
+                        Toggle("保存后继续添加", isOn: $keepAdding)
+                    }
+                } footer: {
+                    if item?.reference.isRepeating == true { Text("这是每日计划。修改内容和分类会应用到整条重复规则。") }
                 }
                 if let item {
                     Section {
@@ -113,12 +126,12 @@ struct TaskEditor: View {
         let components = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
         let minute = reminderEnabled ? (components.hour ?? 9) * 60 + (components.minute ?? 0) : nil
         if let item {
-            model.saveEditor(item.reference, text: value, category: category, originalDay: originalDay, editedDay: day, makeDaily: makeDaily, reminderMinute: .some(minute))
+            model.saveEditor(item.reference, text: value, category: category, originalDay: originalDay, editedDay: day, makeDaily: makeDaily, reminderMinute: .some(minute), important: important)
             dismiss()
         } else {
-            model.perform(.add(text: value, category: category, day: day, repeating: repeating, reminderMinute: minute))
+            model.perform(.add(text: value, category: category, day: day, repeating: repeating, reminderMinute: minute, important: important))
             model.select(day: day)
-            if keepAdding { text = ""; focused = true } else { dismiss() }
+            if keepAdding { text = ""; important = false; focused = true } else { dismiss() }
         }
     }
 }

@@ -4,6 +4,37 @@ import PlannerStore
 @testable import Planner
 
 @MainActor final class WidgetCompletionTests: XCTestCase {
+    func testWidgetAddRouteLoadsColdModelAndChoosesToday() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let model = PlannerViewModel(store: PlannerFileStore(directory: dir))
+        await model.handleURL(URL(string: "planner://add")!)
+        XCTAssertTrue(model.isLoaded)
+        XCTAssertTrue(model.isShowingAdd)
+        XCTAssertEqual(model.selectedDay, .today())
+        XCTAssertFalse(model.isShowingSlice)
+        model.isShowingAdd = false
+        model.select(day: Day.today().adding(days: -1))
+        await model.handleURL(URL(string: "planner://add")!)
+        XCTAssertTrue(model.isShowingAdd)
+        XCTAssertEqual(model.selectedDay, .today())
+        await model.handleURL(URL(string: "https://add")!)
+        XCTAssertTrue(model.isShowingAdd)
+    }
+    func testReorderingAndImportancePersistToWidgetArchive() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = PlannerFileStore(directory: dir), model = PlannerViewModel(store: PlannerFileStore(directory: dir))
+        await model.load()
+        model.perform(.add(text: "A", category: 1, day: .today(), repeating: false, important: true))
+        model.perform(.add(text: "B", category: 1, day: .today(), repeating: true))
+        model.movePlans(from: IndexSet(integer: 0), to: 2, completed: false)
+        await model.flush()
+        let saved = try await store.load()
+        let projected = WidgetProjection(document: saved.document, day: .today())
+        XCTAssertEqual(projected.items.map(\.text), ["B", "A"])
+        XCTAssertTrue(projected.items[1].important)
+    }
     func testRetapRetriesFailedWidgetPublicationWithoutTogglingAgain() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }

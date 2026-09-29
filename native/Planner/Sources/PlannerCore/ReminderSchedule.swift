@@ -6,6 +6,14 @@ public struct ReminderEntry: Equatable, Sendable, Identifiable {
     public let day: Day
     public let date: Date
     public let reference: TaskReference
+    public init(id: String, text: String, day: Day, date: Date, reference: TaskReference) {
+        self.id = id; self.text = text; self.day = day; self.date = date; self.reference = reference
+    }
+    public var notificationSignature: String {
+        // Version the presentation as well as its content so existing notifications migrate.
+        let fields = ["v2", text, String(date.timeIntervalSince1970)]
+        return (try? JSONEncoder().encode(fields).base64EncodedString()) ?? ""
+    }
 }
 
 public struct ReminderSchedule: Sendable {

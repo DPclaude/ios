@@ -1,13 +1,23 @@
 import SwiftUI
 import PlannerCore
 
+private enum PlannerSheet: Identifiable {
+    case add, settings, date, edit(TaskItem)
+    var id: String {
+        switch self {
+        case .add: return "add"
+        case .settings: return "settings"
+        case .date: return "date"
+        case .edit(let item): return "edit-\(item.id)"
+        }
+    }
+}
+
 struct PlannerDayView: View {
     let model: PlannerViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showSettings = false
-    @State private var showDate = false
-    @State private var showAdd = false
-    @State private var editing: TaskItem?
+    @State private var activeSheet: PlannerSheet?
+    @State private var sorting = false
     @State private var completedExpanded = true
     @State private var feedback = 0
     @State private var deletingRepeat: TaskItem?
@@ -38,11 +48,13 @@ struct PlannerDayView: View {
                             }.padding(.vertical, 16)
                         }
                         ForEach(model.snapshot.open) { row($0) }
+                            .onMove { model.movePlans(from: $0, to: $1, completed: false) }
                     }
                     if !model.snapshot.completed.isEmpty {
                         Section {
                             DisclosureGroup("已完成 · \(model.snapshot.completed.count)", isExpanded: $completedExpanded) {
                                 ForEach(model.snapshot.completed) { row($0) }
+                                    .onMove { model.movePlans(from: $0, to: $1, completed: true) }
                             }
                         }
                     }
@@ -51,6 +63,7 @@ struct PlannerDayView: View {
                 }
             }
             .listStyle(.insetGrouped).scrollDismissesKeyboard(.interactively)
+            .environment(\.editMode, .constant(sorting ? .active : .inactive))
             .navigationTitle("计划本")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -58,18 +71,27 @@ struct PlannerDayView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack {
+                        Button(sorting ? "完成排序" : "排序") { withAnimation { sorting.toggle() } }
+                            .accessibilityIdentifier("reorderPlans").disabled(!model.canEdit)
                         Button { model.openSlice() } label: { Image(systemName: "scribble.variable") }
                             .accessibilityLabel("全屏划掉今天的计划").accessibilityIdentifier("openSlice").disabled(!model.canEdit)
-                        Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                        Button { activeSheet = .settings } label: { Image(systemName: "gearshape") }
                             .accessibilityLabel("设置").accessibilityIdentifier("settings")
                     }
                 }
             }
             .safeAreaInset(edge: .bottom) { bottomBar }
-            .sheet(isPresented: $showSettings) { SettingsView(model: model) }
-            .sheet(isPresented: $showAdd) { TaskEditor(model: model, item: nil) }
-            .sheet(item: $editing) { TaskEditor(model: model, item: $0) }
-            .sheet(isPresented: $showDate) { datePicker }
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .settings: SettingsView(model: model)
+                case .add: TaskEditor(model: model, item: nil)
+                case .edit(let item): TaskEditor(model: model, item: item)
+                case .date: datePicker
+                }
+            }
+            .onChange(of: model.isShowingAdd, initial: true) { _, requested in
+                if requested { activeSheet = .add; model.isShowingAdd = false }
+            }
             .fullScreenCover(isPresented: Binding(get: { model.isShowingSlice }, set: { model.isShowingSlice = $0 })) {
                 SliceCompletionView(model: model)
             }
@@ -85,7 +107,7 @@ struct PlannerDayView: View {
         HStack {
             Button { model.select(day: model.selectedDay.adding(days: -1)) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }.accessibilityLabel("前一天")
             Spacer(minLength: 0)
-            Button { showDate = true } label: {
+            Button { activeSheet = .date } label: {
                 Text(model.selectedDay.date(), format: .dateTime.year().month().day()).font(.headline)
             }.accessibilityLabel("选择日期")
             Spacer(minLength: 0)
@@ -111,7 +133,7 @@ struct PlannerDayView: View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 categoryButton("全部", value: nil)
-                ForEach(0..<4) { categoryButton(PlannerCategory.names[$0], value: $0) }
+                ForEach(1..<4) { categoryButton(PlannerCategory.names[$0], value: $0) }
             }.padding(.vertical, 5)
         }.scrollIndicators(.hidden)
     }
@@ -128,7 +150,7 @@ struct PlannerDayView: View {
         feedback += 1
     }
     private func row(_ item: TaskItem) -> some View {
-        TaskRow(item: item, toggle: { act(.toggle(item.reference)) }, edit: { editing = item })
+        TaskRow(item: item, toggle: { act(.toggle(item.reference)) }, edit: { if !sorting { activeSheet = .edit(item) } })
             .disabled(!model.canEdit)
             .swipeActions(edge: .trailing, allowsFullSwipe: !item.reference.isRepeating) {
                 Button(role: .destructive) {
@@ -151,7 +173,7 @@ struct PlannerDayView: View {
                     Button("撤销") { model.undoDelete() }.bold().accessibilityIdentifier("undoDelete")
                 }.padding().background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
-            Button { showAdd = true } label: { Label("添加计划", systemImage: "plus").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8) }
+            Button { activeSheet = .add } label: { Label("添加计划", systemImage: "plus").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 8) }
                 .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                 .accessibilityIdentifier("addTask").disabled(!model.canEdit)
         }.padding(.horizontal, 20).padding(.vertical, 10).background(.bar)
@@ -174,7 +196,7 @@ struct PlannerDayView: View {
             DatePicker("选择日期", selection: Binding(get: { model.selectedDay.date() }, set: { model.select(day: .today(now: $0)) }), displayedComponents: .date)
                 .datePickerStyle(.graphical).padding()
                 .navigationTitle("选择日期").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showDate = false } } }
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { activeSheet = nil } } }
         }.presentationDetents([.medium, .large])
     }
 }

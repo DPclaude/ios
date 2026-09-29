@@ -5,7 +5,7 @@ import PlannerStore
 
 enum SaveState: Equatable { case saved, saving, failed(String) }
 enum PlannerAction {
-    case add(text: String, category: Int, day: Day, repeating: Bool, reminderMinute: Int? = nil)
+    case add(text: String, category: Int, day: Day, repeating: Bool, reminderMinute: Int? = nil, important: Bool = false)
     case toggle(TaskReference)
     case edit(TaskReference, text: String, category: Int)
     case reschedule(taskID: String, day: Day)
@@ -29,6 +29,7 @@ struct ImportPreview: Identifiable, Sendable {
     private(set) var isBusy = false
     private(set) var undoAvailable = false
     var isShowingSlice = false
+    var isShowingAdd = false
     private(set) var widgetMessage: String?
     private var sliceUndo: TaskReference?
     var sliceUndoAvailable: Bool { sliceUndo != nil }
@@ -85,10 +86,11 @@ struct ImportPreview: Identifiable, Sendable {
     func perform(_ action: PlannerAction) {
         guard canEdit else { return }
         switch action {
-        case .add(let text, let cat, let day, let daily, let reminder):
+        case .add(let text, let cat, let day, let daily, let reminder, let important):
             let id = UUID().uuidString
             document.add(text: text, category: cat, day: day, id: id)
             document.setReminder(reminder, for: .task(id))
+            document.setImportant(important, for: .task(id))
             if daily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
         case .toggle(let ref): document.toggle(ref, now: now())
         case .edit(let ref, let text, let cat): document.edit(ref, text: text, category: cat)
@@ -110,11 +112,12 @@ struct ImportPreview: Identifiable, Sendable {
         changed(); enqueueSave()
     }
     private func changed() { revision += 1; saveState = .saving; rebuild() }
-    func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false, reminderMinute: Int?? = nil) {
+    func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false, reminderMinute: Int?? = nil, important: Bool? = nil) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canEdit, !value.isEmpty, (0..<4).contains(category) else { return }
         document.edit(reference, text: value, category: category)
         if let reminderMinute { document.setReminder(reminderMinute, for: reference) }
+        if let important { document.setImportant(important, for: reference) }
         if case .task(let id) = reference {
             // An untouched date must preserve any rollover that happened while editing.
             if editedDay != originalDay, let index = document.tasks.firstIndex(where: { $0.id == id }) {
@@ -124,6 +127,28 @@ struct ImportPreview: Identifiable, Sendable {
             if makeDaily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
         }
         changed(); enqueueSave()
+    }
+    func movePlans(from offsets: IndexSet, to destination: Int, completed: Bool) {
+        guard canEdit else { return }
+        var references = (completed ? snapshot.completed : snapshot.open).map(\.reference)
+        guard offsets.allSatisfy({ references.indices.contains($0) }), (0...references.count).contains(destination) else { return }
+        let moved = offsets.sorted().map { references[$0] }
+        for i in offsets.sorted(by: >) { references.remove(at: i) }
+        references.insert(contentsOf: moved, at: destination - offsets.filter { $0 < destination }.count)
+        document.reorder(references, day: selectedDay, completed: completed)
+        changed(); enqueueSave()
+    }
+    func handleURL(_ url: URL) async {
+        guard url.scheme == "planner", ["add", "slice"].contains(url.host ?? "") else { return }
+        await load(); await refreshCalendar()
+        guard canEdit else { return }
+        if url.host == "slice" { isShowingAdd = false; openSlice() }
+        else {
+            isShowingSlice = false
+            select(day: .today(now: now(), timeZone: timeZone()))
+            select(category: nil)
+            isShowingAdd = true
+        }
     }
     func updateNote(_ text: String, for day: Day) {
         guard canEdit, document.notes[day.rawValue, default: ""] != text else { return }

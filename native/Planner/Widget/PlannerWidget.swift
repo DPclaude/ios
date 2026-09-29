@@ -43,7 +43,7 @@ struct PlannerWidgetView: View {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: PlannerWidgetBridge.kind, provider: PlannerProvider()) { PlannerWidgetView(entry: $0) }
             .configurationDisplayName("计划本 · 今天")
-            .description("直接在桌面点勾完成今日计划。点空白处可打开全屏划切。")
+            .description("轻点圆圈完成计划，已完成项保留在下方。点空白处添加计划。")
             .supportedFamilies([.systemMedium, .systemLarge])
     }
 }

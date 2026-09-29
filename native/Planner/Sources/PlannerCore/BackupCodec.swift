@@ -33,7 +33,7 @@ public enum BackupCodec {
         for r in document.repeats {
             if let minute = r.reminderMinute, !(0..<1440).contains(minute) { throw BackupError.invalid("提醒时间") }
             guard !r.id.isEmpty, !r.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  Day(rawValue: r.from) != nil, (0...3).contains(r.cat) else { throw BackupError.invalid("重复规则") }
+                  Day(rawValue: r.from) != nil, (0...3).contains(r.cat), r.order.isFinite else { throw BackupError.invalid("重复规则") }
         }
         guard document.notes.keys.allSatisfy({ Day(rawValue: $0) != nil }),
               document.repeatDone.keys.allSatisfy({ Day(rawValue: $0) != nil }) else { throw BackupError.invalid("日期") }

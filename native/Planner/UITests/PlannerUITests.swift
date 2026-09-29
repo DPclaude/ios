@@ -1,6 +1,31 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    func testImportantFlagAndEarlierReminderPersistWithoutDefaultCategory() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]
+        app.launch()
+        XCTAssertTrue(app.buttons["addTask"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["默认"].exists)
+        app.buttons["addTask"].tap()
+        let field = app.textViews["taskText"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("重要证件")
+        dismissKeyboardIntroduction(in: app)
+        if app.buttons["dismissKeyboard"].isHittable { app.buttons["dismissKeyboard"].tap() }
+        let important = app.switches["importantToggle"]
+        XCTAssertTrue(important.waitForExistence(timeout: 3))
+        important.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(important.value as? String, "1")
+        XCTAssertTrue(app.switches["reminderToggle"].isHittable)
+        XCTAssertFalse(app.staticTexts["默认"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "新增计划-重要与提醒"; shot.lifetime = .keepAlways; add(shot)
+        app.buttons["saveTask"].tap()
+        XCTAssertTrue(app.buttons["edit-重要证件"].waitForExistence(timeout: 5))
+        app.terminate(); app.launchArguments = ["--uitesting"]; app.launch()
+        XCTAssertTrue(app.buttons["edit-重要证件"].waitForExistence(timeout: 10))
+        app.buttons["edit-重要证件"].tap()
+        XCTAssertEqual(important.value as? String, "1")
+    }
     func testPerPlanReminderPersistsInEditor() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--reset-data"]
