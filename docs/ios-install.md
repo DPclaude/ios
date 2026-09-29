@@ -1,5 +1,7 @@
 # iPhone 安装、迁移与自动续签
 
+第一次使用？先看[《计划本：小白使用说明》](ios-beginner-guide.md)，从安装到每天怎么用，一步一步操作。
+
 适用设备：iPhone 14 Pro / iOS 27.0。代码与安装包的完成状态以 GitHub Actions 实际运行结果和 `ios-acceptance.md` 为准。
 
 ## 1. 先保留旧数据
