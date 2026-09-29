@@ -32,8 +32,9 @@ targets:
     info:
       path: build/Info.plist
       properties:
-        CFBundleDisplayName: 计划本
-        CFBundleDevelopmentRegion: zh_CN
+        CFBundleDisplayName: Planner
+        CFBundleName: Planner
+        CFBundleDevelopmentRegion: zh-Hans
         LSRequiresIPhoneOS: true
         CADisableMinimumFrameDurationOnPhone: true
         UIApplicationSupportsIndirectInputEvents: true
