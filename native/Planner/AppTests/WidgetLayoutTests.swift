@@ -22,4 +22,22 @@ import PlannerCore
             attachment.lifetime = .keepAlways; add(attachment)
         }
     }
+    func testCompletionFeedbackRendersBeforeConfirmedSnapshotForVisualReview() throws {
+        var document = PlannerDocument()
+        let day = Day.today()
+        document.tasks = [PlannerTask(id: "feedback", text: "准备明天的证件和出行资料", date: day.rawValue, important: true)]
+        let item = try XCTUnwrap(WidgetProjection(document: document, day: day).items.first)
+        for compact in [true, false] {
+            let content = VStack(spacing: 12) {
+                PlannerWidgetTaskRow(item: item, isOn: false, compact: compact)
+                // The same unconfirmed snapshot must already render visible feedback when Toggle turns on.
+                PlannerWidgetTaskRow(item: item, isOn: true, compact: compact)
+            }.frame(width: 306).padding(16).background(Color.white).environment(\.colorScheme, .light)
+            let renderer = ImageRenderer(content: content); renderer.scale = 3
+            let attachment = XCTAttachment(image: try XCTUnwrap(renderer.uiImage))
+            attachment.name = compact ? "Widget-medium-immediate-feedback" : "Widget-large-immediate-feedback"
+            attachment.lifetime = .keepAlways; add(attachment)
+        }
+    }
+
 }

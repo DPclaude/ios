@@ -26,7 +26,7 @@ export function releaseMetadata({ version, ipa, notes, date = new Date().toISOSt
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [version, ipa, output = 'build/distribution'] = process.argv.slice(2);
-  const notes = '新增长期目标：设置总截止日期，拆分多个阶段，每个阶段单独指定截止日期。阶段进入当日计划，在 App 或组件完成后自动同步目标进度。优化组件完成流程，合并冷启动和保存后的重复刷新，取消行淡入淡出，刚完成的计划优先显示在下方。保留任务提醒、重要标记、拖动排序和旧数据。更新时保留小组件扩展，并打开 App 一次。';
+  const notes = '优化桌面组件的点按手感：点计划后，圆圈立即显示绿色勾选，文字划线并出现正在完成提示，不用等后台保存结束才看到响应。保存完成后归入下方已完成区，失败时恢复真实状态并提供重试。保留单次最终更新、长期目标、任务提醒和原有数据。归类速度仍受 iOS 系统调度影响。更新时保留小组件扩展，并打开 App 一次。';
   const { source, update } = releaseMetadata({ version, ipa, notes });
   mkdirSync(output, { recursive: true });
   copyFileSync(ipa, join(output, 'Planner.ipa'));
