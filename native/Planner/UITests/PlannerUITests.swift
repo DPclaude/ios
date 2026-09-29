@@ -1,6 +1,31 @@
 import XCTest
 
 @MainActor final class PlannerUITests: XCTestCase {
+    func testSliceCompletesAndUndoRestoresPlan() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--reset-data"]
+        app.launch()
+        XCTAssertTrue(app.buttons["addTask"].waitForExistence(timeout: 10))
+        app.buttons["addTask"].tap()
+        let field = app.textViews["taskText"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText("划掉这一件")
+        dismissKeyboardIntroduction(in: app)
+        app.buttons["saveTask"].tap()
+        let entrance = app.buttons["openSlice"]
+        XCTAssertTrue(entrance.waitForExistence(timeout: 5))
+        guard entrance.exists else { return }
+        entrance.tap()
+        let card = app.otherElements["slice-划掉这一件"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).press(forDuration: 0.05, thenDragTo: card.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
+        XCTAssertTrue(app.buttons["undoSlice"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["今天的计划已完成"].waitForExistence(timeout: 5))
+        app.buttons["undoSlice"].tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.lifetime = .keepAlways; add(shot)
+        app.buttons["closeSlice"].tap()
+        XCTAssertEqual(app.buttons["toggle-划掉这一件"].label, "完成：划掉这一件")
+    }
     private func dismissKeyboardIntroduction(in app: XCUIApplication) {
         let introduction = app.otherElements["UIContinuousPathIntroductionView"]
         if introduction.waitForExistence(timeout: 2) { introduction.buttons["Continue"].tap() }
