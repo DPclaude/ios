@@ -63,13 +63,14 @@ struct TaskEditor: View {
                     }
                 }
                 Section {
-                    if item?.reference.isRepeating != true { DatePicker("日期", selection: $date, displayedComponents: .date) }
+                    if item?.reference.isRepeating != true { DatePicker(item?.goalTitle == nil ? "日期" : "执行日期", selection: $date, displayedComponents: .date) }
                     if item == nil {
                         Toggle("每天重复", isOn: $repeating)
                         Toggle("保存后继续添加", isOn: $keepAdding)
                     }
                 } footer: {
                     if item?.reference.isRepeating == true { Text("这是每日计划。修改内容和分类会应用到整条重复规则。") }
+                    if item?.goalTitle != nil { Text("这是长期目标中的阶段。这里可调整执行日期和提醒；原定截止日期在长期目标中修改。") }
                 }
                 if let item {
                     Section {

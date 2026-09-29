@@ -1,7 +1,6 @@
 import AppIntents
 import Foundation
 import PlannerCore
-import WidgetKit
 
 // This protocol guarantees app-process execution while openAppWhenRun keeps the Home Screen visible.
 struct CompletePlanIntent: LiveActivityIntent {
@@ -28,7 +27,6 @@ struct CompletePlanIntent: LiveActivityIntent {
             PlannerWidgetBridge.setInteractionError(message)
         } catch { PlannerWidgetBridge.setInteractionError(error.localizedDescription) }
         #endif
-        WidgetCenter.shared.reloadTimelines(ofKind: PlannerWidgetBridge.kind)
         return .result()
     }
 }
@@ -43,7 +41,6 @@ struct RefreshPlannerIntent: LiveActivityIntent {
         let message = await WidgetCompletionHandler.refresh(model: runtime.model, reminders: runtime.reminders)
         PlannerWidgetBridge.setInteractionError(message)
         #endif
-        WidgetCenter.shared.reloadTimelines(ofKind: PlannerWidgetBridge.kind)
         return .result()
     }
 }

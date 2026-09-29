@@ -2,6 +2,21 @@ import XCTest
 @testable import PlannerCore
 
 final class TaskPolishTests: XCTestCase {
+    func testJustCompletedPlanStaysVisibleWhenCompletedSectionIsFull() {
+        var doc = PlannerDocument()
+        doc.tasks = [PlannerTask(id: "open", text: "继续做", date: day.rawValue),
+                     PlannerTask(id: "old", text: "旧完成", date: day.rawValue, done: true, order: 0, doneAt: 1),
+                     PlannerTask(id: "new", text: "刚完成", date: day.rawValue, done: true, order: 2, doneAt: 2)]
+        XCTAssertEqual(WidgetProjection(document: doc, day: day).visibleItems(limit: 2).map(\.text), ["继续做", "刚完成"])
+    }
+    func testJustCompletedDailyPlanAlsoGetsCompletedWidgetSlot() throws {
+        var doc = PlannerDocument()
+        doc.tasks = [PlannerTask(id: "old", text: "旧完成", date: day.rawValue, done: true, doneAt: 100)]
+        doc.repeats = [RepeatRule(id: "r", text: "刚完成的每日计划", from: day.rawValue)]
+        doc.toggle(.repeating(ruleID: "r", day: day), now: day.date())
+        let reopened = try BackupCodec.decode(BackupCodec.encode(doc))
+        XCTAssertEqual(WidgetProjection(document: reopened, day: day).visibleItems(limit: 1).first?.text, "刚完成的每日计划")
+    }
     private let day = Day(rawValue: "2026-09-29")!
     func testLegacyBackupDefaultsAndFilteredMixedReordering() throws {
         var doc = try BackupCodec.decode(Data(#"{"tasks":[{"id":"a","text":"A","date":"2026-09-29","cat":1},{"id":"hidden","text":"H","date":"2026-09-29","cat":2},{"id":"b","text":"B","date":"2026-09-29","cat":1}],"repeats":[{"id":"r","text":"R","from":"2026-09-29","cat":1}]}"#.utf8))

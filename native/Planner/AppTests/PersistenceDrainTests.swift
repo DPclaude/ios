@@ -36,9 +36,13 @@ private actor GatedStorage: PlannerStorage {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = GatedStorage(directory: dir)
-        let subject = PlannerViewModel(store: store)
+        var normalPublications = 0, widgetPublications: [PlannerDocument] = []
+        let subject = PlannerViewModel(store: store,
+            onSnapshotPersist: { _ in normalPublications += 1; return nil },
+            onWidgetSnapshotPersist: { widgetPublications.append($0.document); return nil })
         await subject.load()
         subject.perform(.add(text: "桌面完成", category: 0, day: .today(), repeating: false)); await subject.flush()
+        normalPublications = 0
         let saved = try await store.load(), reference = subject.snapshot.open[0].reference
         await store.arm()
         var returned = false
@@ -58,5 +62,7 @@ private actor GatedStorage: PlannerStorage {
         let actual = try await store.load()
         XCTAssertEqual(actual.document.tasks.count, 2)
         XCTAssertTrue(actual.document.tasks[0].done)
+        XCTAssertEqual(normalPublications, 0)
+        XCTAssertEqual(widgetPublications, [actual.document], "Only the final durable revision should be published")
     }
 }

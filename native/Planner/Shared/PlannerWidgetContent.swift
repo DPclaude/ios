@@ -22,57 +22,41 @@ struct PlannerWidgetContent: View {
             }
             if let projection {
                 Text("\(projection.items.count) 件待完成").font(.caption).foregroundStyle(.secondary)
-                    .contentTransition(.numericText()).invalidatableContent()
+                    .contentTransition(.identity)
                 let visible = projection.visibleItems(limit: compact ? 2 : 5)
-                if visible.isEmpty {
-                    Text("今天想做点什么？").font(.subheadline).foregroundStyle(.secondary)
-                }
-                ForEach(visible.filter { !$0.done }) { item in
-                    if let generation {
-                        Toggle(isOn: false, intent: CompletePlanIntent(reference: item.reference, generation: generation, day: projection.day)) {
-                            Text(item.text).lineLimit(1)
+                if visible.isEmpty { Text("今天想做点什么？").font(.subheadline).foregroundStyle(.secondary) }
+                // One identity per task across both groups; completion changes position, not view identity.
+                ForEach(visible) { item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        if !compact, item.done, item.id == visible.first(where: \.done)?.id {
+                            Text("已完成").font(.caption2).foregroundStyle(.secondary).transition(.identity)
                         }
-                        .toggleStyle(PlannerCircleToggleStyle(important: item.important, compact: compact))
-                        .accessibilityLabel("完成：\(item.text)")
-                    } else { staticRow(item) }
+                        if let generation {
+                            Button(intent: CompletePlanIntent(reference: item.reference, generation: generation, day: projection.day)) {
+                                row(item)
+                            }.buttonStyle(.plain).disabled(item.done)
+                                .accessibilityLabel("\(item.done ? "已完成" : "完成")：\(item.text)")
+                        } else { row(item) }
+                    }.id(item.id).transition(.identity)
                 }
-                if visible.contains(where: \.done) {
-                    if !compact { Text("已完成").font(.caption2).foregroundStyle(.secondary) }
-                    ForEach(visible.filter(\.done)) { item in staticRow(item) }
-                }
+                .animation(nil, value: visible)
                 Spacer(minLength: 0)
             } else {
                 Text(message ?? "轻点添加今天的计划").font(.subheadline).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
             }
-        }
+        }.contentTransition(.identity)
     }
-    private func staticRow(_ item: TaskItem) -> some View {
+    private func row(_ item: TaskItem) -> some View {
         HStack(spacing: 8) {
             Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
                 .foregroundStyle(item.done ? Color.secondary : .orange).font(.system(size: 21))
+                .contentTransition(.identity)
             Text(item.text).font(.subheadline).lineLimit(1).strikethrough(item.done)
                 .foregroundStyle(item.done ? Color.secondary : (item.important ? .red : .primary))
             Spacer(minLength: 0)
-        }.frame(minHeight: compact ? 24 : 30)
+        }.frame(maxWidth: .infinity, minHeight: compact ? 24 : 30, alignment: .leading)
+            .contentShape(Rectangle()).contentTransition(.identity).transition(.identity)
             .accessibilityLabel("\(item.done ? "已完成" : "待完成")：\(item.text)")
-    }
-}
-
-// WidgetKit updates isOn immediately, before the background save finishes.
-private struct PlannerCircleToggleStyle: ToggleStyle {
-    let important: Bool
-    let compact: Bool
-    func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: 8) {
-                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 21)).foregroundStyle(configuration.isOn ? Color.secondary : .orange)
-                configuration.label.font(.subheadline).strikethrough(configuration.isOn)
-                    .foregroundStyle(configuration.isOn ? Color.secondary : (important ? .red : .primary))
-                Spacer(minLength: 0)
-            }.frame(maxWidth: .infinity, minHeight: compact ? 24 : 30, alignment: .leading)
-                .contentShape(Rectangle())
-        }.buttonStyle(.plain)
     }
 }

@@ -19,8 +19,11 @@
 - 将 widget completion 的冷加载、跨天、保存出版合并，只发布已持久化的最终状态。
 - Widget 操作的出版仅写共享文件；系统在 Intent 返回后负责唯一刷新。App 内编辑继续显式 reload。保留失败反馈、重试与 generation 检查、唯一主 App 存储写入者。
 - 使用单一稳定 ID 的 ForEach，同一行完成后移到列表尾部；取消默认淡入淡出/数字变化、等待遮罩和乐观 Toggle 中间态。使用圆圈 Button 提交持久化完成后更新。
+- 空间有限时优先显示最近完成的计划，避免刚完成项目被旧完成项挤出；待完成沿用 App 手动排序。
 - Apple WidgetKit 限制仍适用，不能承诺主屏任意帧刷新或零延迟。代码、模拟器与真实 iPhone 手感分开验收。
 
 ## 验证
 
 Core 覆盖旧备份兼容、关联持久化、顺延不改截止日、非法阶段、目标编辑保留完成状态、删除与撤销。App 覆盖冷/热 widget 仅最终出版、保存失败重试、目标跨重启与提醒。UI 覆盖目标新增、阶段完成、编辑、重启。全部现有测试与 arm64 App/Widget 打包通过后发布 1.4.0，更新说明与安装包。
+
+参考：[WidgetKit 交互自动刷新](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities)、[更新动画与 identity transition](https://developer.apple.com/documentation/widgetkit/animating-data-updates-in-widgets-and-live-activities)。

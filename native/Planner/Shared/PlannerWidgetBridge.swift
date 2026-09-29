@@ -24,12 +24,12 @@ enum PlannerWidgetBridge {
         }
         return nil
     }
-    static func publish(_ snapshot: StoreSnapshot) -> String? {
+    static func publish(_ snapshot: StoreSnapshot, reload: Bool = true) -> String? {
         guard let file = archiveURL else { return "组件共享空间不可用。请在 SideStore 安装时保留小组件扩展，再重新打开计划本。" }
         do {
             try WidgetArchive.write(document: snapshot.document, generation: snapshot.generation, to: file)
             setInteractionError(nil)
-            WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            if reload { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
             return nil
         } catch { return "组件同步未成功：\(error.localizedDescription)" }
     }

@@ -87,7 +87,8 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("备份内容") {
-                    LabeledContent("普通计划", value: "\(candidate.document.tasks.count)")
+                    LabeledContent("计划（含目标阶段）", value: "\(candidate.document.tasks.count)")
+                    LabeledContent("长期目标", value: "\(candidate.document.goals.count)")
                     LabeledContent("每日规则", value: "\(candidate.document.repeats.count)")
                     LabeledContent("备忘天数", value: "\(candidate.document.notes.count)")
                 }

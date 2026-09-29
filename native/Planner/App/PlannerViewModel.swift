@@ -49,11 +49,15 @@ struct ImportPreview: Identifiable, Sendable {
     @ObservationIgnored private var undoDeadline = Date.distantPast
     @ObservationIgnored private let onPersist: (PlannerDocument) -> String?
     @ObservationIgnored private let onSnapshotPersist: (StoreSnapshot) -> String?
+    @ObservationIgnored private let onWidgetSnapshotPersist: ((StoreSnapshot) -> String?)?
+    @ObservationIgnored private var widgetPublicationDepth = 0
+    @ObservationIgnored private var deferredWidgetSnapshot: StoreSnapshot?
 
-    init(store: any PlannerStorage, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }) {
+    init(store: any PlannerStorage, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }, onWidgetSnapshotPersist: ((StoreSnapshot) -> String?)? = nil) {
         self.store = store; self.now = now; self.timeZone = timeZone
         self.onPersist = onPersist
         self.onSnapshotPersist = onSnapshotPersist
+        self.onWidgetSnapshotPersist = onWidgetSnapshotPersist
         let today = Day.today(now: now(), timeZone: timeZone())
         selectedDay = today; previousToday = today
     }
@@ -74,8 +78,24 @@ struct ImportPreview: Identifiable, Sendable {
         publish(value)
     }
     private func publish(_ value: StoreSnapshot) {
+        if widgetPublicationDepth > 0 { deferredWidgetSnapshot = value; return }
+        publishNow(value)
+    }
+    private func publishNow(_ value: StoreSnapshot) {
         let legacyMessage = onPersist(value.document)
-        widgetMessage = onSnapshotPersist(value) ?? legacyMessage
+        let callback = widgetPublicationDepth > 0 ? (onWidgetSnapshotPersist ?? onSnapshotPersist) : onSnapshotPersist
+        widgetMessage = callback(value) ?? legacyMessage
+    }
+    private func finishWidgetPublication() {
+        // Only persisted snapshots are eligible; a failed save must never advertise unsaved completion.
+        if let value = deferredWidgetSnapshot {
+            deferredWidgetSnapshot = nil
+            publishNow(value)
+        }
+    }
+    private func endWidgetInteraction() {
+        if widgetPublicationDepth == 1 { finishWidgetPublication() }
+        widgetPublicationDepth -= 1
     }
     private func rebuild() { snapshot = document.snapshot(day: selectedDay, category: category) }
     func select(day: Day) {
@@ -92,7 +112,11 @@ struct ImportPreview: Identifiable, Sendable {
             document.setReminder(reminder, for: .task(id))
             document.setImportant(important, for: .task(id))
             if daily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
-        case .toggle(let ref): document.toggle(ref, now: now())
+        case .toggle(let ref):
+            document.toggle(ref, now: now())
+            if case .task(let id) = ref, document.tasks.contains(where: { $0.id == id && $0.goalID != nil && !$0.done }) {
+                document.rollover(today: .today(now: now(), timeZone: timeZone()), timeZone: timeZone())
+            }
         case .edit(let ref, let text, let cat): document.edit(ref, text: text, category: cat)
         case .reschedule(let id, let day):
             if let i = document.tasks.firstIndex(where: { $0.id == id }) { document.tasks[i].date = day.rawValue; document.tasks[i].rolled = false }
@@ -208,6 +232,8 @@ struct ImportPreview: Identifiable, Sendable {
     }
     func undoDelete() { undoDelete(now: now()) }
     func completeFromWidget(_ reference: TaskReference, generation expectedGeneration: UUID, day: Day) async throws {
+        widgetPublicationDepth += 1
+        defer { endWidgetInteraction() }
         await load()
         guard canEdit else { throw WidgetCompletionError.unavailable }
         await refreshCalendar()
@@ -229,10 +255,18 @@ struct ImportPreview: Identifiable, Sendable {
         if case .failed = saveState { await retrySave() } else { await flush() }
         if case .failed(let message) = saveState { throw WidgetCompletionError.saveFailed(message) }
         guard saveState == .saved else { throw WidgetCompletionError.unavailable }
-        if widgetMessage != nil {
-            publish(StoreSnapshot(document: document, generation: generation, revision: revision))
+        if deferredWidgetSnapshot != nil {
+            finishWidgetPublication()
+        } else if widgetMessage != nil {
+            publishNow(StoreSnapshot(document: document, generation: generation, revision: revision))
         }
         if let widgetMessage { throw WidgetCompletionError.saveFailed(widgetMessage) }
+    }
+    func refreshFromWidget() async throws {
+        widgetPublicationDepth += 1
+        defer { endWidgetInteraction() }
+        await load()
+        try await synchronizeWidget()
     }
     func openSlice() {
         guard canEdit else { return }

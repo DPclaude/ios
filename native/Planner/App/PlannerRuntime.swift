@@ -23,6 +23,11 @@ import PlannerStore
             guard !testing else { return nil }
             coordinator.enqueue(snapshot.document)
             return PlannerWidgetBridge.publish(snapshot)
+        }, onWidgetSnapshotPersist: { snapshot in
+            guard !testing else { return nil }
+            coordinator.enqueue(snapshot.document)
+            // WidgetKit reloads after the intent returns. No intermediate or duplicate reload here.
+            return PlannerWidgetBridge.publish(snapshot, reload: false)
         })
         UNUserNotificationCenter.current().delegate = notificationDelegate
     }

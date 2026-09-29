@@ -12,8 +12,7 @@ import PlannerCore
     }
     static func refresh(model: PlannerViewModel, reminders: ReminderCoordinator) async -> String? {
         do {
-            await model.load()
-            try await model.synchronizeWidget()
+            try await model.refreshFromWidget()
             await reminders.refresh()
             return reminders.errorMessage
         } catch { return error.localizedDescription }

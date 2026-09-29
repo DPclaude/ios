@@ -4,6 +4,22 @@ import PlannerStore
 @testable import Planner
 
 @MainActor final class WidgetCompletionTests: XCTestCase {
+    func testWidgetUsesOneFinalPublicationWithoutRequestingAnotherReload() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = PlannerFileStore(directory: dir)
+        var normal = 0, interactive: [Bool] = []
+        let model = PlannerViewModel(store: store, onSnapshotPersist: { _ in normal += 1; return nil },
+                                     onWidgetSnapshotPersist: { snapshot in interactive.append(snapshot.document.tasks[0].done); return nil })
+        await model.load()
+        model.perform(.add(text: "完成一次", category: 0, day: .today(), repeating: false)); await model.flush()
+        let saved = try await store.load(), ref = model.snapshot.open[0].reference
+        normal = 0
+        try await model.completeFromWidget(ref, generation: saved.generation, day: .today())
+        try await model.completeFromWidget(ref, generation: saved.generation, day: .today())
+        XCTAssertEqual(normal, 0)
+        XCTAssertEqual(interactive, [true])
+    }
     func testColdWidgetCompletionPublishesOnlyFinalState() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }

@@ -11,7 +11,7 @@ struct GoalEditor: View {
     @State private var stages: [GoalStageDraft]
     @State private var errorMessage: String?
     @State private var removing: GoalStageDraft?
-    @FocusState private var focused: Bool
+    @FocusState private var focusedField: String?
     init(model: PlannerViewModel, goal: PlannerGoal?) {
         self.model = model; self.goal = goal
         _identifier = State(initialValue: goal?.id ?? UUID().uuidString)
@@ -24,8 +24,8 @@ struct GoalEditor: View {
         NavigationStack {
             Form {
                 Section("长期目标") {
-                    TextField("想完成什么？", text: $title, axis: .vertical)
-                        .focused($focused).accessibilityIdentifier("goalTitle")
+                    TextField("想完成什么？", text: $title)
+                        .focused($focusedField, equals: "title").accessibilityIdentifier("goalTitle")
                     DatePicker("目标截止日期", selection: $deadline, displayedComponents: .date)
                 }
                 Section {
@@ -34,8 +34,8 @@ struct GoalEditor: View {
                 ForEach($stages) { $stage in
                     let index = stages.firstIndex(where: { $0.id == stage.id }) ?? 0
                     Section("阶段 \(index + 1)") {
-                        TextField("这个阶段要完成什么？", text: $stage.text, axis: .vertical)
-                            .focused($focused).accessibilityIdentifier("stageTitle-\(index)")
+                        TextField("这个阶段要完成什么？", text: $stage.text)
+                            .focused($focusedField, equals: stage.id).accessibilityIdentifier("stageTitle-\(index)")
                         DatePicker("阶段截止日期", selection: Binding(get: { stage.deadline.date() }, set: { stage.deadline = .today(now: $0) }), displayedComponents: .date)
                         if stages.count > 1 {
                             Button("移除这个阶段", role: .destructive) {
@@ -68,7 +68,7 @@ struct GoalEditor: View {
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("完成") { focused = false }.accessibilityIdentifier("goalDismissKeyboard")
+                    Button("完成") { focusedField = nil }.accessibilityIdentifier("goalDismissKeyboard")
                 }
             }
             .confirmationDialog("移除这个阶段？", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible) {

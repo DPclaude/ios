@@ -6,8 +6,9 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
     public var repeats: [RepeatRule] = []
     public var repeatDone: [String: [String]] = [:]
     public var goals: [PlannerGoal] = []
+    public var lastCompleted: TaskReference?
     public init() {}
-    enum CodingKeys: String, CodingKey { case tasks, notes, repeats, repeatDone, goals }
+    enum CodingKeys: String, CodingKey { case tasks, notes, repeats, repeatDone, goals, lastCompleted }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         tasks = try c.decode([PlannerTask].self, forKey: .tasks)
@@ -15,6 +16,7 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
         repeats = try c.decodeIfPresent([RepeatRule].self, forKey: .repeats) ?? []
         repeatDone = try c.decodeIfPresent([String: [String]].self, forKey: .repeatDone) ?? [:]
         goals = try c.decodeIfPresent([PlannerGoal].self, forKey: .goals) ?? []
+        lastCompleted = try c.decodeIfPresent(TaskReference.self, forKey: .lastCompleted)
     }
     public func snapshot(day: Day, category: Int?) -> DaySnapshot {
         let completedIDs = Set(repeatDone[day.rawValue] ?? [])
@@ -49,11 +51,15 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
             guard let i = tasks.firstIndex(where: { $0.id == id }) else { return }
             tasks[i].done.toggle(); tasks[i].doneAt = tasks[i].done ? now.timeIntervalSince1970 * 1000 : 0
             if tasks[i].done { tasks[i].rolled = false }
+            if tasks[i].done { lastCompleted = reference }
+            else if lastCompleted == reference { lastCompleted = nil }
         case .repeating(let id, let day):
             guard repeats.contains(where: { $0.id == id && $0.from <= day.rawValue }) else { return }
             var ids = repeatDone[day.rawValue] ?? []
             if ids.contains(id) { ids.removeAll { $0 == id } } else { ids.append(id) }
             repeatDone[day.rawValue] = ids
+            if ids.contains(id) { lastCompleted = reference }
+            else if lastCompleted == reference { lastCompleted = nil }
         }
     }
     public mutating func edit(_ reference: TaskReference, text: String, category: Int) {
