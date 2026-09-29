@@ -1,52 +1,29 @@
 name: Native iOS
 on:
   push:
-    branches: [codex/native-ios]
-    paths: ['.github/workflows/ios-native.yml']
+    branches: [main, codex/native-ios]
+    paths: ['native/**', '.github/workflows/ios-native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/ios-native.yml']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified native version to SideStore
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency:
+  group: native-ios-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  source:
-    if: github.ref == 'refs/heads/codex/native-ios'
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    outputs:
-      revision: ${{ steps.apply.outputs.revision }}
-    steps:
-      - uses: actions/checkout@v6.0.2
-      - name: Materialize reviewed source
-        id: apply
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import base64,gzip,json,pathlib
-          files=json.loads(gzip.decompress(base64.b64decode('H4sIAOmfu2oC/+1be28bxxH/KmsBBUhAoqQ4BlqqaSNLViLUdgxZshuUQbG6W5IHH+/Y2z1LimMgRt3GsmPFcV6O67Rp6zRukShFgPglp/4yfEh/+St05vZ4vDvei9TTgQUb0JEzs7Pz+M3s7OnCkEGFdp6NntKpYTBrdGF2nnHBO8/uY4EvaWUxVCRDWq1uWoL8dgo/Lxkl49UTVDMmFWFapKwZVCeKTjknQf6iyzBFOSMXSgaBn7JtKETAh6+ZVD8taIXxKWocZVMWo4KpU2atrjP4ZdJQ55hZZwZTc/kOM/7At4TW6+QVEL4wO1mv65oCmzGNXL5LBAQFncJS1UmrYteYITgw/K40NDJia7i6ZlRKQ8MEP7AYZ2JEpYKWht6a8LH6BcJGJjlnlpi3bJZDmkVbCNPgIBO1xN1w4C8sUU3MmNaxZY0LZigsJ7QaM21RJONj+ZCGMSIErediKamqImEEHRpGaEJnsFPkEWxZzGhMV5GtAjzz+CUwxu3KYU7YwJF8fkKuIJf2HlbqbB4Wy5WGmuvvt67caF35sH37cuPHO82PLpWGfCqqGq9pnP+GrSya1FJnDWGZqq043tOMIqrtox4dJfNVRjgGCbHMJaJxssh0+EXAx+dcIYQqCuPctFbIIrXIUlUDCyCBtAXwlE3F5kwtZPMmWmo6qGeyX4/EuzVGVoSDA85ydux4a2TMo5/IQBd2RPPKF+17T7fhAq2cbUcaf10Tgi6CwS/0YQNyMc5ynJ5nMXGe5ryRqCDchgNj5PWp1bxZqYCfgn7ZhlYx8lK1gpgRmoJRgpKaD76XEsg4GYX/W7fut9Z/GFgxpmoixms9KOZgfwyMcaaYhhqFY76QHw9AWRkq0e+JZpCxQuGXhwEGmMXIISmoNzyhsNXZQigCg8ZyWVPg0KVyM7Tz1M3D1upH7X/eaz6633h8t7FxK5CKz0dyJQXMS/0HjOPeqimc+j0/CftSqlifc1yxGDPwq6J0kfeccwwNvxQMWsPqVhra+uRp687f2n9Zb335XuPhWkcLl0zXygxXB9LCOcbqk/oSXeEAoKqaQ4Ie7LVq0MMI1gHZ9M5ht/uEiYH7g+0g1g66+mKo2zurqRUmJlV1DujYHLZc/Cy1ascAMUwLmj03ihk/Df0cO+gtH0TSPOXnBm/4mjfWGg/fbd79d6i+Ry4RgZBlBEQfQJ7R2BJyCWBBBya0eQ5rGq5JIlcx98GHap993frsK8jAzeur22swUH8M7tzC3PEcFxY4qQguqstzRHF0FMwA4g+Fts9qdbEC2z95+pQFRUfB5IUKUKMCuc9T3Ybkf4X87FXp8YCCbLnOFCHjB3iKUtgwYciGZ5CzmqgW5aZh856hPC7ut5WvAiWarLGx1t643Ni43/r0v81//LWxcdVxfj4Jo2P8nxSYWIFHYtYasKh32XdMD4YK8MTTkAMDfS6q6CZnHmMfm+0zAnt1iEnBrDp4AmcA4pN3FTBdGGVPOqf6aYtW4OxsqQw3c4pZHFl+gpCKPZ97yjNQrdbazebjD9offy+Vko+NR5+DTP/eI9vRmFwbCG93AXOdbYb0yoK0E9lhJVNKl0odVbJHd2wfaskgxaERj61zFheu3RWm67wAHbagmgGhl3NFDRNNhdjUwGQWpq6jqC8W8gVHygkqlGrCOWMA8U5sRYsP+x8oOrk7EX3S6AFFj+rYH2yq55Jtp9NFpmPUu72fo1+gvuCGq7AHainVld7220U+XEVli3ZlmkEHrtUxmnxCPAHdXlyCDnEVImhAy8ROdcJHndSSe1QhZRcZJDjr76DQlSC5u2pKi7SuXm2tXkPd3O+TFJMkYRNSQ9UZAqHrN9cnhRoGAMZNdFPSDSJyCDsTMnlymoQ/lMAVjjD8TMjzvj/u4kPF1RGC2TbEMBkfTnNrxcZJWoAN+6dxwnQc3YJzhW0Z/kzu0DKdOV5ZBB716EqRjOULdSgGHLc+bVtOUSmiCqLKDCxN82ZRpvUwWYJO6wzTTUUTwFngurkk6V43dXUmwJ8fEEQ8yxwHneZB6yhU81eKQtmCkCnAifDNYRJL6wCLn3afzpS9KmUtnntsmHCrMuvcKFBDzOi0Aue/Y9TSIQ3mGPCgO2XXgq046D7NytTWxRTYs2JaK3vZykSJ2MWWJrET3Nq4tbl+N0MDfZDPjlvvXd/816XN7y7BuWAnJ9NqX4MzNcPQDG2ldcLUtRcHyFKqDEV4X8lRbILVPMoEyx32R0GXQTEB3SSQIFiexHKia28z9Y1yGaK0SKZeO8PwGi6nLgP2Fn4xTFQE4QJ4IhYKZZHoLiLPy5T/mpx2ugBMg/GAbyJmRV1DWG7OenbwGT45tIMDp4Tw3pmpoTyGbq7/vXnl5oiMw8bDtdYHN7b+fHPQ4eHOnNiDSdHX2XVPK012PZOGX5GidiZYw2XmlOwMQmWFzxpy8PgTriTP0TTRScDWD9c2v/vk4FeEDtr1FoQeHIy5nXq5czvVYRjofspjzlhTZIvvcUmIje/vPcJdrEDeGukFaFsFYF8gPRjV27hQ7ZEU0mRnY6svz4TR1plSdl7h4dDVLxiqOQdfwDGaIw6/wNsDgLfQ/bTWVjefft54+O72mvDM2eLc2YAsCrq6+44e98dtu8OcNY0k2nlcaWjnEUboraAkqbMpILmOyYmHs2PUeqTHnrG7QFFZd+DQ9gu+40f86BsxhxkrjB0JjmIGWufn/nUy5pQNWNDv5UzaHbW8Umrfviybeu/KemDADSiZCPn9+HJ/qlfw4ii5FAc53WFjb2CHx8zPntyOQxM3u+qWdh7CStaIZHRB9YvhUtBTMDQfU0xaLsxOmQbUBdu0+Skqqv51EGoDGQpto19kgktfAl2CtF2LuQuynrYx+ooOYfI4+FVZUXR82UFULXOJv6iNu1sbD2c4izhdlkSTvSiM6W1kQKG3snb7kfkclhVV7DrvX8+ZSz2FOkqhtDfw/AL9veg77wTW6gyM6fKb5Ffx8dIdK0dd6HqdbeTdYxbEC1vIgzvnPbPHrTv/8XAvNlIC20p1t0HPaxUnsY9SCzVpP/l0838fZnH4kXw+zfqhIy5DvTq2dHuihENBEncfcYw1ddphHjiAgyL2KIfiTRpsQjC9O4eebIZNa2vCEg/qODC7YYP1wOmHvFan767Ie4zpjXwWwR7JI485tU5T69wJU2VwXj1OrYosBbt7UFVhyc7vOq45IsKlbR8KMzQIqCTvN8eWcTZ7lCrn7Hof6bXvQRAKA2jhOFNsbM8mVXVG0yGVpiGR8HISgv3F6GIPRhdZ36Zsf/ONPG40Hl87+CNjJyhVOF9XeofGjadfNL+91byx1t74ur3xbevBRvPqlxlmx12Zoa7K90VPT+X7YIS8PJa9REWulvpWiY9rF6fIvlXS58gDNuYZThax+kneKNUCmqUH/OP3n4eAfxGu2wrXsV16JzyImNsYwEXI7QZm6pspzQdfNX68k7SBqBdfIneQttKf7m398d5OmCptoZ4/5djNXa1eT19shzYWybN3B1oHAvtORG8wPd6biT2o+uzJlcbT9dbHj549Wd2DvAsu19+fzO1nowz/hi7+H1Lnk/I0QAAA')))
-          for name,content in files.items():
-              p=pathlib.Path(name)
-              assert name.startswith(('native/','docs/')) and '..' not in p.parts and not p.is_absolute()
-              p.parent.mkdir(parents=True,exist_ok=True)
-              p.write_text(content,encoding='utf-8')
-          PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add native docs
-          if ! git diff --cached --quiet; then
-            git commit -m 'feat: long-term goals and single widget completion publication'
-            git push origin HEAD:codex/native-ios
-          fi
-          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   verify:
-    needs: source
     runs-on: macos-26
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6.0.2
-        with:
-          ref: ${{ needs.source.outputs.revision }}
       - uses: actions/cache/restore@v4
         id: xcodegen-cache
         with:
@@ -97,7 +74,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/codex/native-ios' && ((github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish native]')))
-    needs: [source, verify]
+    needs: verify
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -122,6 +99,6 @@ jobs:
             exit 1
           fi
           REMOTE_HEAD=$(gh api "repos/$GH_REPO/git/ref/heads/codex/native-ios" --jq '.object.sha')
-          test "$REMOTE_HEAD" = "${{ needs.source.outputs.revision }}" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
+          test "$REMOTE_HEAD" = "$GITHUB_SHA" || { echo 'Branch changed during verification; rebuild before publishing.'; exit 1; }
           gh release create "$TAG" "$RELEASE_DIR/Planner.ipa" "$RELEASE_DIR/planner-source.json" "$RELEASE_DIR/planner-update.json" \
             --target "$GITHUB_REF_NAME" --title "计划本 $VERSION" --notes-file "$RELEASE_DIR/release-notes.md" --latest
