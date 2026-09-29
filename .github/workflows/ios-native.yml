@@ -30,19 +30,33 @@ jobs:
           assert len(v)==1 and v[0]['conclusion']=='success'
           print('Verified source and completed test/build job for build 27.')
           PY
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c
+          persist-credentials: false
       - name: Download the tested artifact
         run: gh run download 36528615241 --name Planner-native-27 --dir dist
       - name: Locate and publish verified assets
         shell: bash
         run: |
-          find dist -maxdepth 5 -type f -name 'planner-*json' -print
-          mapfile -t MANIFESTS < <(find dist -type f -name planner-update.json)
-          test "${#MANIFESTS[@]}" -eq 1
-          RELEASE_DIR=$(dirname "${MANIFESTS[0]}")
-          VERSION=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).version" "$RELEASE_DIR/planner-update.json")
-          test "$VERSION" = '1.1.0'
-          test -s "$RELEASE_DIR/Planner.ipa"
+          mapfile -t IPAS < <(find dist -type f -name Planner-unsigned.ipa)
+          test "${#IPAS[@]}" -eq 1
+          export IPA="${IPAS[0]}"
+          VERSION=$(python3 - <<'PY'
+          import os,zipfile,plistlib
+          with zipfile.ZipFile(os.environ['IPA']) as z:
+              for path in ['Payload/Planner.app/Info.plist','Payload/Planner.app/PlugIns/PlannerWidget.appex/Info.plist']:
+                  p=plistlib.loads(z.read(path))
+                  assert p['CFBundleShortVersionString']=='1.1.0' and p['CFBundleVersion']=='27',p
+          print('1.1.0')
+          PY
+          )
+          node --test native/Planner/scripts/release-metadata.test.mjs
+          node native/Planner/scripts/release-metadata.mjs "$VERSION" "$IPA" distribution
+          RELEASE_DIR=distribution
+          cmp "$IPA" "$RELEASE_DIR/Planner.ipa"
           unzip -t "$RELEASE_DIR/Planner.ipa"
+          sha256sum "$RELEASE_DIR/Planner.ipa"
           TAG="native-v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo 'Release already exists; refusing to overwrite.'
