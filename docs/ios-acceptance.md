@@ -1,5 +1,18 @@
 # 原生计划本验收记录
 
+## 1.4.0 长期目标与组件归类
+
+源码 `885fecc7cfc410b3208ca4eb16f04b922b65cfb8`；构建 45。Xcode 26.6 / iOS 26.5 模拟器。
+
+- 37 项 Core/Store、32 项 App、9 项 UI、2 项更新元数据测试通过；arm64 App 与 Widget Release 编译和打包成功。
+- 目标支持总截止日期和多个阶段，阶段完成与计划同步；验证编辑保留完成状态、逾期顺延、旧备份、无效关联和过期编辑保护。
+- 冷启动组件完成回归从旧版两次发布 `[false, true]` 修复为单次 `[true]`；并发保存、重复点击与失败恢复测试通过。
+- 已检查中/大组件实际渲染图，以及目标 UI 的创建、完成、增添阶段、重开流程。
+- [完整测试与发布](https://github.com/DPclaude/ios/actions/runs/36561594799)；[1.4.0 安装包发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.4.0)。
+- 公开 IPA 1225019 字节，SHA256 `3e340191d47d764beccc662924225a6b653002065a77bf070a4a297c52b32c1e`。App/Widget 版本与构建号、英文签名名称、App Group、Intent 元数据、ZIP 完整性以及 latest 更新源均核对通过。
+
+手机真实手感仍需 iPhone 14 Pro / iOS 27.0 验证；WidgetKit 调度可能带来延迟，不保证零延迟或固定帧率。
+
 目标设备：iPhone 14 Pro / iOS 27.0（用户提供，尚未连接真机验收）。
 
 ## 1.3.0 组件交互、排序与重要计划
