@@ -28,7 +28,7 @@
 
 ### 你尚未安装 SideStore：首次操作顺序
 
-1. 按上面的官方前置条件安装 Windows 驱动、iloader，并在手机安装 LocalDevVPN。
+1. Windows 先按[官方前置条件](https://docs.sidestore.io/docs/installation/prerequisites)安装 iTunes 驱动和 iloader；手机从 [App Store 安装 LocalDevVPN](https://apps.apple.com/app/localdevvpn/id6755608044)。
 2. 用数据线连接 iPhone，解锁并在手机上信任这台电脑。
 3. 打开 iloader，在工具中自行登录 Apple 账户，选择这台 iPhone，再选 `Install SideStore (Stable)`。
 4. 在手机“设置 → 通用 → VPN 与设备管理”中打开对应开发者账户，按系统提示信任并重启。
