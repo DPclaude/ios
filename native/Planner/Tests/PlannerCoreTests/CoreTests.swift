@@ -101,4 +101,19 @@ final class CoreTests: XCTestCase {
         let doc = try BackupCodec.decode(Data(json.utf8))
         XCTAssertEqual(doc.repeatDone["2026-09-29"], ["r"])
     }
+
+    func testLargeHistorySnapshotDoesNotMutateHistory() throws {
+        var doc = PlannerDocument()
+        doc.tasks = (0..<10_000).map { task("t\($0)", date: $0 < 300 ? "2026-09-29" : "2026-10-01", order: Double($0)) }
+        doc.repeats = (0..<30).map { RepeatRule(id: "r\($0)", text: "每天\($0)", cat: 0, from: "2026-09-01") }
+        let original = doc
+        let selected = day("2026-09-29")
+        measure {
+            let result = doc.snapshot(day: selected, category: nil)
+            XCTAssertEqual(result.open.count, 330)
+            XCTAssertEqual(result.completedCount, 0)
+        }
+        XCTAssertEqual(doc, original)
+        XCTAssertEqual(try BackupCodec.decode(BackupCodec.encode(doc)), original)
+    }
 }

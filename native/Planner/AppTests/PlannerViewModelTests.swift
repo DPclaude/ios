@@ -62,4 +62,53 @@ import PlannerStore
         let previous = try await store.recoverPreviousImport()
         XCTAssertEqual(previous.document.notes["2026-09-29"], "导入前")
     }
+
+    func testLoadFailureBlocksEditsAndPreservesOriginalBytes() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("planner.json"), damaged = Data("damaged data".utf8)
+        try damaged.write(to: file)
+        let model = PlannerViewModel(store: PlannerFileStore(directory: directory))
+        await model.load()
+        XCTAssertNotNil(model.loadError)
+        XCTAssertFalse(model.canEdit)
+        model.perform(.add(text: "不能覆盖", category: 0, day: model.selectedDay, repeating: false))
+        await model.flush()
+        XCTAssertEqual(try Data(contentsOf: file), damaged)
+    }
+
+    func testMidnightRolloverFollowsTodayWithoutChangingCompletedHistory() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let zone = TimeZone(identifier: "Asia/Shanghai")!
+        var clock = Day(rawValue: "2026-09-29")!.date(timeZone: zone)
+        let model = PlannerViewModel(store: PlannerFileStore(directory: directory), now: { clock }, timeZone: { zone })
+        await model.load()
+        model.perform(.add(text: "未完成", category: 0, day: model.selectedDay, repeating: false))
+        model.perform(.add(text: "完成", category: 0, day: model.selectedDay, repeating: false))
+        model.perform(.toggle(model.snapshot.open.last!.reference))
+        clock = Day(rawValue: "2026-09-30")!.date(timeZone: zone)
+        await model.refreshCalendar(); await model.flush()
+        XCTAssertEqual(model.selectedDay.rawValue, "2026-09-30")
+        XCTAssertEqual(model.document.tasks.first?.date, "2026-09-30")
+        XCTAssertEqual(model.document.tasks.last?.date, "2026-09-29")
+    }
+
+    func testFailedSaveCanRetryWithoutLosingMemory() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("planner.json")
+        let model = PlannerViewModel(store: PlannerFileStore(directory: directory)); await model.load()
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: true)
+        model.perform(.add(text: "仍在内存", category: 0, day: model.selectedDay, repeating: false))
+        await model.flush()
+        guard case .failed = model.saveState else { return XCTFail("failed save not surfaced") }
+        XCTAssertEqual(model.document.tasks.first?.text, "仍在内存")
+        try FileManager.default.removeItem(at: file)
+        await model.retrySave()
+        XCTAssertEqual(model.saveState, .saved)
+        let saved = try await PlannerFileStore(directory: directory).load()
+        XCTAssertEqual(saved.document.tasks.first?.text, "仍在内存")
+    }
 }

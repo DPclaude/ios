@@ -17,6 +17,7 @@ import XCTest
         XCTAssertTrue(app.buttons["undoDelete"].waitForExistence(timeout: 3))
         app.buttons["undoDelete"].tap()
         XCTAssertTrue(app.buttons["edit-测试计划"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["saveComplete"].waitForExistence(timeout: 5))
         app.terminate(); app.launchArguments = ["--uitesting"]; app.launch()
         XCTAssertTrue(app.buttons["edit-测试计划"].waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.screenshot()); screenshot.lifetime = .keepAlways

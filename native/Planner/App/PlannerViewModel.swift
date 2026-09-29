@@ -130,6 +130,7 @@ struct ImportPreview: Identifiable, Sendable {
         document.rollover(today: today, timeZone: timeZone())
         if original != document { changed(); enqueueSave() } else { rebuild() }
     }
+    func undoDelete() { undoDelete(now: now()) }
     func undoDelete(now: Date) {
         guard canEdit, undoAvailable, now <= undoDeadline, let removed else { clearUndo(); return }
         document.restore(removed, today: Day.today(now: self.now(), timeZone: timeZone()), timeZone: timeZone())
