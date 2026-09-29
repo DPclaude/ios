@@ -111,4 +111,39 @@ import PlannerStore
         let saved = try await PlannerFileStore(directory: directory).load()
         XCTAssertEqual(saved.document.tasks.first?.text, "仍在内存")
     }
+
+    func testConvertingEditedDraftToDailyPreservesDraft() async throws {
+        let (model, store) = try model(); await model.load()
+        model.perform(.add(text: "旧标题", category: 0, day: model.selectedDay, repeating: false))
+        let reference = model.snapshot.open[0].reference
+        let original = model.selectedDay, changedDate = original.adding(days: 2)
+        model.saveEditor(reference, text: "修改后的计划", category: 3, originalDay: original, editedDay: changedDate, makeDaily: true)
+        await model.flush()
+        let saved = try await store.load()
+        XCTAssertTrue(saved.document.tasks.isEmpty)
+        XCTAssertEqual(saved.document.repeats.first?.text, "修改后的计划")
+        XCTAssertEqual(saved.document.repeats.first?.cat, 3)
+        XCTAssertEqual(saved.document.repeats.first?.from, changedDate.rawValue)
+    }
+
+    func testEditorAcrossMidnightDoesNotUndoRollover() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let originalDay = Day(rawValue: "2026-09-29")!, tomorrow = originalDay.adding(days: 1)
+        var clock = originalDay.date()
+        let model = PlannerViewModel(store: PlannerFileStore(directory: directory), now: { clock })
+        await model.load()
+        model.perform(.add(text: "未完成", category: 0, day: originalDay, repeating: false))
+        let reference = model.snapshot.open[0].reference
+        clock = tomorrow.date(); await model.refreshCalendar()
+        model.saveEditor(reference, text: "第二天修改", category: 1, originalDay: originalDay, editedDay: originalDay)
+        await model.flush()
+        XCTAssertEqual(model.document.tasks.first?.date, tomorrow.rawValue)
+        XCTAssertEqual(model.document.tasks.first?.text, "第二天修改")
+        XCTAssertEqual(model.snapshot.open.count, 1)
+        let explicitDate = tomorrow.adding(days: 2)
+        model.saveEditor(reference, text: "指定日期", category: 1, originalDay: tomorrow, editedDay: explicitDate)
+        XCTAssertEqual(model.document.tasks.first?.date, explicitDate.rawValue)
+        await model.flush()
+    }
 }

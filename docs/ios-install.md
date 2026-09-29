@@ -26,6 +26,17 @@
 
 安装完成后，在 SideStore 中导入 `Planner-unsigned.ipa`，用你的个人账户签名。免费账户通常最多同时安装 3 个这类应用，SideStore 本身占用一个；已有侧载 App 时先查看可用名额，不擅自删除已有应用。
 
+### 你尚未安装 SideStore：首次操作顺序
+
+1. 按上面的官方前置条件安装 Windows 驱动、iloader，并在手机安装 LocalDevVPN。
+2. 用数据线连接 iPhone，解锁并在手机上信任这台电脑。
+3. 打开 iloader，在工具中自行登录 Apple 账户，选择这台 iPhone，再选 `Install SideStore (Stable)`。
+4. 在手机“设置 → 通用 → VPN 与设备管理”中打开对应开发者账户，按系统提示信任并重启。
+5. 在“隐私与安全性 → 开发者模式”按提示开启并重启；连接 LocalDevVPN，再打开 SideStore，使用同一账户登录。
+6. 在 `My Apps` 中先刷新 SideStore 本身，确认成功后安装计划本 IPA。
+
+这些步骤来自 [SideStore 当前安装说明](https://docs.sidestore.io/docs/installation/install)。若出现证书替换或登录错误，先读清具体影响；当前手机上的 iOS 27.0 兼容性仍需实际安装验证，不能由云端模拟器推断。
+
 ## 4. 验证续签，然后启用自动刷新
 
 1. 按官方要求连接 Wi-Fi，打开本地 VPN。

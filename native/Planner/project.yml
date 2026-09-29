@@ -35,6 +35,7 @@ targets:
         CFBundleDisplayName: 计划本
         CFBundleDevelopmentRegion: zh_CN
         LSRequiresIPhoneOS: true
+        CADisableMinimumFrameDurationOnPhone: true
         UIApplicationSupportsIndirectInputEvents: true
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

@@ -4,6 +4,7 @@ import PlannerCore
 struct TaskEditor: View {
     let model: PlannerViewModel
     let item: TaskItem?
+    private let originalDay: Day
     @Environment(\.dismiss) private var dismiss
     @State private var text: String
     @State private var category: Int
@@ -14,7 +15,7 @@ struct TaskEditor: View {
     @State private var confirmCancelRepeat = false
     @FocusState private var focused: Bool
     init(model: PlannerViewModel, item: TaskItem?) {
-        self.model = model; self.item = item
+        self.model = model; self.item = item; originalDay = model.selectedDay
         _text = State(initialValue: item?.text ?? "")
         _category = State(initialValue: item?.cat ?? model.category ?? 0)
         _date = State(initialValue: model.selectedDay.date())
@@ -43,7 +44,7 @@ struct TaskEditor: View {
                         if case .task(let id) = item.reference {
                             Button("置顶", systemImage: "pin") { model.perform(.pin(id)); dismiss() }
                             Button("移到下一天", systemImage: "arrow.right") { model.perform(.tomorrow(id)); dismiss() }
-                            Button("改为每天重复", systemImage: "repeat") { model.perform(.makeDaily(id)); dismiss() }
+                            Button("改为每天重复", systemImage: "repeat") { save(makeDaily: true) }
                         } else {
                             Button("取消每天重复", systemImage: "repeat") { confirmCancelRepeat = true }
                         }
@@ -59,7 +60,7 @@ struct TaskEditor: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存", action: save).bold().accessibilityIdentifier("saveTask")
+                    Button("保存") { save() }.bold().accessibilityIdentifier("saveTask")
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !model.canEdit)
                 }
             }
@@ -77,13 +78,12 @@ struct TaskEditor: View {
             } message: { Text("移除整条规则，在当前日期保留一条普通计划。其他日期的完成记录也会移除。") }
         }
     }
-    private func save() {
+    private func save(makeDaily: Bool = false) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return }
         let day = Day.today(now: date)
         if let item {
-            model.perform(.edit(item.reference, text: value, category: category))
-            if case .task(let id) = item.reference { model.perform(.reschedule(taskID: id, day: day)) }
+            model.saveEditor(item.reference, text: value, category: category, originalDay: originalDay, editedDay: day, makeDaily: makeDaily)
             dismiss()
         } else {
             model.perform(.add(text: value, category: category, day: day, repeating: repeating))

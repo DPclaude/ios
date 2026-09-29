@@ -13,6 +13,8 @@ import XCTest
         XCTAssertTrue(app.buttons["edit-测试计划"].waitForExistence(timeout: 3))
         app.buttons["toggle-测试计划"].tap()
         app.buttons["edit-测试计划"].tap()
+        XCTAssertTrue(app.navigationBars["编辑计划"].waitForExistence(timeout: 5))
+        for _ in 0..<3 where !app.buttons["deleteTask"].exists { app.swipeUp() }
         app.buttons["deleteTask"].tap()
         XCTAssertTrue(app.buttons["undoDelete"].waitForExistence(timeout: 3))
         app.buttons["undoDelete"].tap()
