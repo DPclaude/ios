@@ -14,6 +14,22 @@ for key in CFBundleDisplayName CFBundleName; do
   plutil -extract "$key" raw -o - build/package/Payload/Planner.app/zh-Hans.lproj/InfoPlist.strings | grep -qx '计划本'
 done
 echo 'Validated signing name Planner and localized Chinese app name.'
+WIDGET=build/package/Payload/Planner.app/PlugIns/PlannerWidget.appex
+test -d "$WIDGET"
+/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$WIDGET/Info.plist" | grep -qx 'com.dpclaude.planner.widget'
+/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$WIDGET/Info.plist" | grep -qx 'Planner Widget'
+/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$WIDGET/Info.plist" | grep -qx 'com.apple.widgetkit-extension'
+plutil -extract CFBundleDisplayName raw -o - "$WIDGET/zh-Hans.lproj/InfoPlist.strings" | grep -qx '计划本组件'
+lipo -info "$WIDGET/PlannerWidget" | grep -q arm64
+# Ad-hoc signatures carry requested group metadata; SideStore replaces them with the user's signature.
+codesign --force --sign - --entitlements Planner.entitlements "$WIDGET"
+codesign --force --sign - --entitlements Planner.entitlements build/package/Payload/Planner.app
+for BUNDLE in "$WIDGET" build/package/Payload/Planner.app; do
+  codesign --verify "$BUNDLE"
+  codesign -d --entitlements :- "$BUNDLE" 2>/dev/null > build/checked-entitlements.plist
+  /usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' build/checked-entitlements.plist | grep -qx 'group.com.dpclaude.planner'
+done
+echo 'Validated embedded widget and shared group signing metadata.'
 lipo -info build/package/Payload/Planner.app/Planner | grep -q arm64
 (cd build/package && ditto -c -k --keepParent Payload ../Planner-unsigned.ipa)
 unzip -t build/Planner-unsigned.ipa

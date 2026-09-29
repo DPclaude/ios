@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import PlannerCore
 
 struct SettingsView: View {
     let model: PlannerViewModel
@@ -21,6 +22,19 @@ struct SettingsView: View {
                     Button("恢复导入前的副本", systemImage: "clock.arrow.circlepath") { recovering = true }
                 } header: { Text("你的数据") } footer: {
                     Text("计划保存在本机。请定期将 JSON 备份存到「文件」或其他设备；卸载 App 会删除本机数据和恢复副本。")
+                }
+                UpdateSection()
+                Section("桌面小组件") {
+                    Text("长按手机桌面 → 编辑 → 添加小组件 → 搜索「计划本」→ 选择大号。点组件即可进入全屏划切。")
+                    Text("可以把大组件和中组件放在同一页。组件更新时间由 iOS 调度，刚保存后可能需要片刻显示。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    if let message = model.widgetMessage { Text(message).font(.footnote).foregroundStyle(.orange) }
+                    NavigationLink("预览大组件") {
+                        PlannerWidgetContent(projection: WidgetProjection(document: model.document, day: .today()), message: nil, compact: false)
+                            .padding(20).frame(height: 340)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26))
+                            .padding().navigationTitle("组件预览")
+                    }
                 }
                 Section("安装与续签") {
                     Text("免费签名需定期刷新，请在 SideStore 中确认计划本和 SideStore 的剩余有效期。")

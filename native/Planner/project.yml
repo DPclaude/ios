@@ -8,7 +8,7 @@ settings:
     SWIFT_VERSION: '6.0'
     IPHONEOS_DEPLOYMENT_TARGET: '17.0'
     TARGETED_DEVICE_FAMILY: '1'
-    MARKETING_VERSION: '1.0.0'
+    MARKETING_VERSION: '1.1.0'
     CURRENT_PROJECT_VERSION: '1'
 packages:
   PlannerModules:
@@ -17,8 +17,10 @@ targets:
   Planner:
     type: application
     platform: iOS
-    sources: [App]
+    sources: [App, Shared]
     dependencies:
+      - target: PlannerWidget
+        embed: true
       - package: PlannerModules
         product: PlannerCore
       - package: PlannerModules
@@ -29,12 +31,17 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_TESTABILITY: YES
+        CODE_SIGN_ENTITLEMENTS: Planner.entitlements
     info:
       path: build/Info.plist
       properties:
         CFBundleDisplayName: Planner
         CFBundleName: Planner
         CFBundleDevelopmentRegion: zh-Hans
+        CFBundleURLTypes:
+          - CFBundleURLName: com.dpclaude.planner
+            CFBundleURLSchemes: [planner]
+        ALTAppGroups: [group.com.dpclaude.planner]
         LSRequiresIPhoneOS: true
         CADisableMinimumFrameDurationOnPhone: true
         UIApplicationSupportsIndirectInputEvents: true
@@ -42,6 +49,30 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+  PlannerWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Widget, Shared]
+    dependencies:
+      - package: PlannerModules
+        product: PlannerCore
+      - package: PlannerModules
+        product: PlannerStore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dpclaude.planner.widget
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: Planner.entitlements
+    info:
+      path: build/WidgetInfo.plist
+      properties:
+        CFBundleDisplayName: Planner Widget
+        CFBundleName: PlannerWidget
+        CFBundleDevelopmentRegion: zh-Hans
+        ALTAppGroups: [group.com.dpclaude.planner]
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
   PlannerAppTests:
     type: bundle.unit-test
     platform: iOS
