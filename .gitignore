@@ -1,0 +1,8 @@
+.build/
+build/
+DerivedData/
+*.xcodeproj/
+*.xcuserstate
+.DS_Store
+.superpowers/
+native-ios.bundle

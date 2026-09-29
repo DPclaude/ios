@@ -1,0 +1,339 @@
+import Foundation
+import Observation
+import PlannerCore
+import PlannerStore
+
+enum SaveState: Equatable { case saved, saving, failed(String) }
+enum PlannerAction {
+    case add(text: String, category: Int, day: Day, repeating: Bool, reminderMinute: Int? = nil, important: Bool = false)
+    case toggle(TaskReference)
+    case edit(TaskReference, text: String, category: Int)
+    case reschedule(taskID: String, day: Day)
+    case pin(String), tomorrow(String), makeDaily(String)
+    case cancelDaily(ruleID: String, day: Day)
+    case delete(TaskReference)
+}
+struct ImportPreview: Identifiable, Sendable {
+    let id = UUID()
+    let document: PlannerDocument
+}
+
+@MainActor @Observable final class PlannerViewModel {
+    private(set) var document = PlannerDocument()
+    private(set) var selectedDay: Day
+    private(set) var category: Int?
+    private(set) var snapshot = DaySnapshot()
+    private(set) var saveState: SaveState = .saved
+    private(set) var loadError: String?
+    private(set) var isLoaded = false
+    private(set) var isBusy = false
+    private(set) var undoAvailable = false
+    var isShowingSlice = false
+    var isShowingAdd = false
+    private(set) var widgetMessage: String?
+    private var sliceUndo: TaskReference?
+    var sliceUndoAvailable: Bool { sliceUndo != nil }
+    var canEdit: Bool { isLoaded && loadError == nil && !isBusy }
+    @ObservationIgnored private let store: any PlannerStorage
+    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let timeZone: () -> TimeZone
+    @ObservationIgnored private var generation = UUID()
+    @ObservationIgnored private var revision: UInt64 = 0
+    @ObservationIgnored private var queuedRevision: UInt64 = 0
+    @ObservationIgnored private var previousToday: Day
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private var noteTask: Task<Void, Never>?
+    @ObservationIgnored private var undoTask: Task<Void, Never>?
+    @ObservationIgnored private var removed: RemovedItem?
+    @ObservationIgnored private var undoDeadline = Date.distantPast
+    @ObservationIgnored private let onPersist: (PlannerDocument) -> String?
+    @ObservationIgnored private let onSnapshotPersist: (StoreSnapshot) -> String?
+    @ObservationIgnored private let onWidgetSnapshotPersist: ((StoreSnapshot) -> String?)?
+    @ObservationIgnored private var widgetPublicationDepth = 0
+    @ObservationIgnored private var deferredWidgetSnapshot: StoreSnapshot?
+
+    init(store: any PlannerStorage, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }, onWidgetSnapshotPersist: ((StoreSnapshot) -> String?)? = nil) {
+        self.store = store; self.now = now; self.timeZone = timeZone
+        self.onPersist = onPersist
+        self.onSnapshotPersist = onSnapshotPersist
+        self.onWidgetSnapshotPersist = onWidgetSnapshotPersist
+        let today = Day.today(now: now(), timeZone: timeZone())
+        selectedDay = today; previousToday = today
+    }
+    func load() async {
+        guard !isLoaded else { return }
+        if let loadTask { await loadTask.value; return }
+        let task = Task { @MainActor in
+            do {
+                self.apply(try await self.store.load()); self.isLoaded = true; self.loadError = nil
+                await self.refreshCalendar()
+            } catch { self.loadError = error.localizedDescription }
+        }
+        loadTask = task; await task.value; loadTask = nil
+    }
+    private func apply(_ value: StoreSnapshot) {
+        document = value.document; generation = value.generation; revision = value.revision
+        queuedRevision = revision; saveState = .saved; rebuild()
+        publish(value)
+    }
+    private func publish(_ value: StoreSnapshot) {
+        if widgetPublicationDepth > 0 { deferredWidgetSnapshot = value; return }
+        publishNow(value)
+    }
+    private func publishNow(_ value: StoreSnapshot) {
+        let legacyMessage = onPersist(value.document)
+        let callback = widgetPublicationDepth > 0 ? (onWidgetSnapshotPersist ?? onSnapshotPersist) : onSnapshotPersist
+        widgetMessage = callback(value) ?? legacyMessage
+    }
+    private func finishWidgetPublication() {
+        // Only persisted snapshots are eligible; a failed save must never advertise unsaved completion.
+        if let value = deferredWidgetSnapshot {
+            deferredWidgetSnapshot = nil
+            publishNow(value)
+        }
+    }
+    private func endWidgetInteraction() {
+        if widgetPublicationDepth == 1 { finishWidgetPublication() }
+        widgetPublicationDepth -= 1
+    }
+    private func rebuild() { snapshot = document.snapshot(day: selectedDay, category: category) }
+    func select(day: Day) {
+        noteTask?.cancel(); enqueueSave()
+        selectedDay = day; rebuild()
+    }
+    func select(category: Int?) { self.category = category; rebuild() }
+    func perform(_ action: PlannerAction) {
+        guard canEdit else { return }
+        switch action {
+        case .add(let text, let cat, let day, let daily, let reminder, let important):
+            let id = UUID().uuidString
+            document.add(text: text, category: cat, day: day, id: id)
+            document.setReminder(reminder, for: .task(id))
+            document.setImportant(important, for: .task(id))
+            if daily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
+        case .toggle(let ref):
+            document.toggle(ref, now: now())
+            if case .task(let id) = ref, document.tasks.contains(where: { $0.id == id && $0.goalID != nil && !$0.done }) {
+                document.rollover(today: .today(now: now(), timeZone: timeZone()), timeZone: timeZone())
+            }
+        case .edit(let ref, let text, let cat): document.edit(ref, text: text, category: cat)
+        case .reschedule(let id, let day):
+            if let i = document.tasks.firstIndex(where: { $0.id == id }) { document.tasks[i].date = day.rawValue; document.tasks[i].rolled = false }
+        case .pin(let id): document.pin(taskID: id)
+        case .tomorrow(let id): document.moveToNextDay(taskID: id, timeZone: timeZone())
+        case .makeDaily(let id): document.convertToRepeat(taskID: id, ruleID: UUID().uuidString)
+        case .cancelDaily(let id, let day): document.cancelRepeat(ruleID: id, day: day, taskID: UUID().uuidString, now: now())
+        case .delete(let ref):
+            guard let item = document.remove(ref) else { return }
+            removed = item; undoDeadline = now().addingTimeInterval(7); undoAvailable = true
+            undoTask?.cancel()
+            undoTask = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(7)) } catch { return }
+                self?.clearUndo()
+            }
+        }
+        changed(); enqueueSave()
+    }
+    private func changed() { revision += 1; saveState = .saving; rebuild() }
+    func saveGoal(id: String, title: String, deadline: Day, stages: [GoalStageDraft], creating: Bool) throws {
+        guard canEdit else { throw GoalError.invalid("数据尚未加载完成，请稍后再试。") }
+        try document.saveGoal(id: id, title: title, deadline: deadline, stages: stages, creating: creating,
+                              today: .today(now: now(), timeZone: timeZone()))
+        clearUndo(); changed(); enqueueSave()
+    }
+    func deleteGoal(_ id: String) {
+        guard canEdit else { return }
+        document.deleteGoal(id); clearUndo(); changed(); enqueueSave()
+    }
+    func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false, reminderMinute: Int?? = nil, important: Bool? = nil) {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canEdit, !value.isEmpty, (0..<4).contains(category) else { return }
+        document.edit(reference, text: value, category: category)
+        if let reminderMinute { document.setReminder(reminderMinute, for: reference) }
+        if let important { document.setImportant(important, for: reference) }
+        if case .task(let id) = reference {
+            // An untouched date must preserve any rollover that happened while editing.
+            if editedDay != originalDay, let index = document.tasks.firstIndex(where: { $0.id == id }) {
+                document.tasks[index].date = editedDay.rawValue
+                document.tasks[index].rolled = false
+            }
+            if makeDaily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
+        }
+        changed(); enqueueSave()
+    }
+    func movePlans(from offsets: IndexSet, to destination: Int, completed: Bool) {
+        guard canEdit else { return }
+        var references = (completed ? snapshot.completed : snapshot.open).map(\.reference)
+        guard offsets.allSatisfy({ references.indices.contains($0) }), (0...references.count).contains(destination) else { return }
+        let moved = offsets.sorted().map { references[$0] }
+        for i in offsets.sorted(by: >) { references.remove(at: i) }
+        references.insert(contentsOf: moved, at: destination - offsets.filter { $0 < destination }.count)
+        document.reorder(references, day: selectedDay, completed: completed)
+        changed(); enqueueSave()
+    }
+    func handleURL(_ url: URL) async {
+        guard url.scheme == "planner", ["add", "slice"].contains(url.host ?? "") else { return }
+        await load(); await refreshCalendar()
+        guard canEdit else { return }
+        if url.host == "slice" { isShowingAdd = false; openSlice() }
+        else {
+            select(day: .today(now: now(), timeZone: timeZone()))
+            select(category: nil)
+            isShowingAdd = true
+        }
+    }
+    func updateNote(_ text: String, for day: Day) {
+        guard canEdit, document.notes[day.rawValue, default: ""] != text else { return }
+        document.notes[day.rawValue] = text; revision += 1; saveState = .saving
+        noteTask?.cancel()
+        noteTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            self?.enqueueSave()
+        }
+    }
+    private func enqueueSave(force: Bool = false) {
+        guard isLoaded, loadError == nil, force || revision > queuedRevision else { return }
+        let pending = StoreSnapshot(document: document, generation: generation, revision: revision)
+        queuedRevision = revision; saveState = .saving
+        let previous = saveTask, fileStore = store
+        saveTask = Task { [weak self] in
+            await previous?.value
+            do {
+                try await fileStore.save(pending)
+                if let self, self.generation == pending.generation, self.revision == pending.revision {
+                    self.saveState = .saved
+                    self.publish(pending)
+                }
+            } catch {
+                if let self, self.generation == pending.generation, self.revision == pending.revision { self.saveState = .failed(error.localizedDescription) }
+            }
+        }
+    }
+    func flush() async {
+        noteTask?.cancel(); noteTask = nil
+        repeat {
+            enqueueSave()
+            await saveTask?.value
+            // A UI edit may enqueue a newer save while this one suspends.
+            if case .saving = saveState { continue }
+            break
+        } while true
+    }
+    func retrySave() async { enqueueSave(force: true); await flush() }
+    func refreshCalendar() async {
+        guard canEdit else { return }
+        let today = Day.today(now: now(), timeZone: timeZone())
+        if selectedDay == previousToday { selectedDay = today }
+        previousToday = today
+        let original = document
+        document.rollover(today: today, timeZone: timeZone())
+        if original != document { changed(); enqueueSave() } else { rebuild() }
+    }
+    func undoDelete() { undoDelete(now: now()) }
+    func completeFromWidget(_ reference: TaskReference, generation expectedGeneration: UUID, day: Day) async throws {
+        widgetPublicationDepth += 1
+        defer { endWidgetInteraction() }
+        await load()
+        guard canEdit else { throw WidgetCompletionError.unavailable }
+        await refreshCalendar()
+        let today = Day.today(now: now(), timeZone: timeZone())
+        guard canEdit, generation == expectedGeneration, day == today else { throw WidgetCompletionError.stale }
+        let current = document.snapshot(day: today, category: nil)
+        if current.open.contains(where: { $0.reference == reference }) {
+            document.toggle(reference, now: now()); changed(); enqueueSave()
+        } else if !current.completed.contains(where: { $0.reference == reference }) {
+            throw WidgetCompletionError.stale
+        }
+        try await synchronizeWidget()
+        guard generation == expectedGeneration else { throw WidgetCompletionError.stale }
+    }
+    func synchronizeWidget() async throws {
+        guard canEdit else { throw WidgetCompletionError.unavailable }
+        await refreshCalendar()
+        // A retry after a failed disk write must retry persistence, not toggle again.
+        if case .failed = saveState { await retrySave() } else { await flush() }
+        if case .failed(let message) = saveState { throw WidgetCompletionError.saveFailed(message) }
+        guard saveState == .saved else { throw WidgetCompletionError.unavailable }
+        if deferredWidgetSnapshot != nil {
+            finishWidgetPublication()
+        } else if widgetMessage != nil {
+            publishNow(StoreSnapshot(document: document, generation: generation, revision: revision))
+        }
+        if let widgetMessage { throw WidgetCompletionError.saveFailed(widgetMessage) }
+    }
+    func refreshFromWidget() async throws {
+        widgetPublicationDepth += 1
+        defer { endWidgetInteraction() }
+        await load()
+        try await synchronizeWidget()
+    }
+    func openSlice() {
+        guard canEdit else { return }
+        select(day: .today(now: now(), timeZone: timeZone()))
+        select(category: nil)
+        isShowingSlice = true
+    }
+    @discardableResult func completeForSlice(_ reference: TaskReference) -> Bool {
+        guard canEdit, snapshot.open.contains(where: { $0.reference == reference }) else { return false }
+        perform(.toggle(reference)); sliceUndo = reference
+        return true
+    }
+    func undoSliceCompletion() {
+        guard canEdit, let reference = sliceUndo else { return }
+        let done: Bool
+        switch reference {
+        case .task(let id): done = document.tasks.first(where: { $0.id == id })?.done == true
+        case .repeating(_, let day): done = document.snapshot(day: day, category: nil).completed.contains(where: { $0.reference == reference })
+        }
+        sliceUndo = nil
+        if done {
+            document.toggle(reference, now: now())
+            document.rollover(today: .today(now: now(), timeZone: timeZone()), timeZone: timeZone())
+            changed(); enqueueSave()
+        }
+    }
+    func undoDelete(now: Date) {
+        guard canEdit, undoAvailable, now <= undoDeadline, let removed else { clearUndo(); return }
+        document.restore(removed, today: Day.today(now: self.now(), timeZone: timeZone()), timeZone: timeZone())
+        clearUndo(); changed(); enqueueSave()
+    }
+    private func clearUndo() { undoTask?.cancel(); undoAvailable = false; removed = nil }
+    func prepareImport(data: Data) async throws -> ImportPreview {
+        ImportPreview(document: try await store.decodeBackup(data))
+    }
+    func prepareImport(url: URL) async throws -> ImportPreview {
+        let granted = url.startAccessingSecurityScopedResource()
+        defer { if granted { url.stopAccessingSecurityScopedResource() } }
+        return ImportPreview(document: try await store.readBackup(url: url))
+    }
+    func confirmImport(_ preview: ImportPreview) async throws {
+        guard canEdit else { throw BackupError.invalid("当前保存状态") }
+        isBusy = true; defer { isBusy = false }
+        await flush()
+        if case .failed(let message) = saveState { throw BackupError.invalid("当前保存状态：\(message)") }
+        let next = try await store.replace(with: preview.document)
+        clearUndo(); sliceUndo = nil; apply(next)
+        isBusy = false; await refreshCalendar()
+    }
+    func exportData() async throws -> Data { try await store.encodeBackup(document) }
+    func recoverPreviousImport() async throws {
+        guard !isBusy else { return }
+        isBusy = true; defer { isBusy = false }
+        await flush()
+        let restored = try await store.recoverPreviousImport()
+        clearUndo(); sliceUndo = nil; apply(restored); isLoaded = true; loadError = nil
+        isBusy = false; await refreshCalendar()
+    }
+}
+
+enum WidgetCompletionError: LocalizedError {
+    case unavailable, stale, saveFailed(String)
+    var errorDescription: String? {
+        switch self {
+        case .unavailable: return "暂时不能保存，请打开计划本检查。"
+        case .stale: return "计划已更新，请稍候重试组件。"
+        case .saveFailed(let message): return message
+        }
+    }
+}

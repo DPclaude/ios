@@ -1,0 +1,107 @@
+# 原生计划本验收记录
+
+## 1.4.1 组件即时点按反馈
+
+源码 `1d2315f394e3c975555836b236bf7210578a842f`；构建 46。[完整测试与发布](https://github.com/DPclaude/ios/actions/runs/36565969307)成功：37 项 Core/Store、33 项 App、9 项 UI、2 项元数据测试。
+
+- 普通按钮改为系统乐观 Toggle，使用 configuration.isOn 绘制绿色勾选、划线、浅绿背景及「正在完成」；系统收到点按即可切换预渲染状态，分组仍由最终持久化快照决定。
+- 保留单次最终发布、重复完成保护、保存失败恢复和提醒重试。没有提前结束保存或取消提醒处理来制造低延迟。
+- 已检查中/大组件的点按前和等待中渲染截图。截图只验证状态的显示，不是 WidgetKit 真机点击延迟测量。
+- [1.4.1 发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.4.1)的公开 IPA 已校验：1232535 字节，SHA256 `b9fb7653cc8a912f629bc6fbe573c47b1e5316f29b4ea49bb053ceaa2e242a10`。App/Widget 版本、构建号、AppGroup、Intent、ZIP 和 latest 更新源一致。
+
+iPhone 14 Pro / iOS 27.0 真机上的动画与归类延迟尚未测量，不能承诺系统调度零延迟。
+
+## 1.4.0 长期目标与组件归类
+
+源码 `885fecc7cfc410b3208ca4eb16f04b922b65cfb8`；构建 45。Xcode 26.6 / iOS 26.5 模拟器。
+
+- 37 项 Core/Store、32 项 App、9 项 UI、2 项更新元数据测试通过；arm64 App 与 Widget Release 编译和打包成功。
+- 目标支持总截止日期和多个阶段，阶段完成与计划同步；验证编辑保留完成状态、逾期顺延、旧备份、无效关联和过期编辑保护。
+- 冷启动组件完成回归从旧版两次发布 `[false, true]` 修复为单次 `[true]`；并发保存、重复点击与失败恢复测试通过。
+- 已检查中/大组件实际渲染图，以及目标 UI 的创建、完成、增添阶段、重开流程。
+- [完整测试与发布](https://github.com/DPclaude/ios/actions/runs/36561594799)；[1.4.0 安装包发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.4.0)。
+- 公开 IPA 1225019 字节，SHA256 `3e340191d47d764beccc662924225a6b653002065a77bf070a4a297c52b32c1e`。App/Widget 版本与构建号、英文签名名称、App Group、Intent 元数据、ZIP 完整性以及 latest 更新源均核对通过。
+
+手机真实手感仍需 iPhone 14 Pro / iOS 27.0 验证；WidgetKit 调度可能带来延迟，不保证零延迟或固定帧率。
+
+目标设备：iPhone 14 Pro / iOS 27.0（用户提供，尚未连接真机验收）。
+
+## 1.3.0 组件交互、排序与重要计划
+
+源码 `0cb7f293faf0b3b8d64f12b3589b863ff94ce554`；构建 41。Xcode 26.6 / iPhone 17 Pro / iOS 26.5 模拟器。
+
+- Core/Store：29 项通过，覆盖旧备份默认值、重要标记与顺序的转换和备份、分类内混合排序、完成项分组。
+- App：28 项通过，覆盖更新提醒而不重复提交、缺失提醒重新安排、通知任务标题、排序保存、组件后台完成及中大组件渲染附件。
+- UI：8 项通过，包含原生把手拖动换位并重启保持、已有新增页从组件重新进入今天、划切页退出后进入新增、重要标记、提醒、旧操作流程。
+- 更新源：2 项 Node 检查通过；arm64 Release App 与 Widget 编译、签名元数据和 ZIP 检查通过。
+- [完整测试与发布](https://github.com/DPclaude/ios/actions/runs/36549551146)成功；[公开版本](https://github.com/DPclaude/ios/releases/tag/native-v1.3.0)的 App 和 Widget 都为 1.3.0（41），标签指向上述源码。
+- 公开 IPA 为 1047540 字节，SHA256 `5c2e76cd1e17695a29075488ded0c8b9febe47f78c0da99953c0de4a7caa51bd`。版本、Bundle ID、App Group、Intent 元数据、latest 更新源和清单已核对。
+- 已人工查看用同一组件视图生成的中号/大号满载图，确认红字、圆圈、完成分组和边界。布局截图是静态预览，不证明真机 Intent 延迟。
+
+此前拖动测试使用行边缘坐标和短促落下，录屏能提起行但未换位；最终测试直接定位系统把手并留出落下时间，实际换位及重启保持通过。
+
+组件点按采用系统 Toggle 的即时反馈，提醒只提交变化项。中号最多展示 2 项、大号最多 5 项，已完成项独立置于下方，完整列表在 App 内。每条每日规则的排序应用于整条规则。
+
+真机待确认：iPhone 14 Pro / iOS 27.0 上 SideStore 重签后的实际交互延迟、组件刷新、通知送达。自动续签仍需手机上的 SideStore/快捷指令实际运行确认。
+
+## 1.2.0 桌面直接完成与逐条通知提醒
+
+源码 `8913e12420bfc6fc2263add0b015a21f1051419f`；构建 37。Xcode 26.6；iPhone 17 Pro / iOS 26.5 模拟器。
+
+- Core/Store：25 项通过，包括提醒备份兼容、分钟校验、每日完成/撤销、过期时间、最近 60 条容量及 DST 日期。
+- App 状态：23 项通过，包括桌面重复点击、导入/跨天过期按钮、并发加载、同步发布失败重试、阻塞写入并发测试、通知失败恢复。
+- UI：5 项通过，包括提醒开关保存后重开编辑器、任务完整生命周期、连续添加、深色/大字体及划切撤销。
+- 更新源：2 项 Node 测试通过。
+- [测试与打包记录](https://github.com/DPclaude/ios/actions/runs/36536202621/job/109300756177)与[发布任务](https://github.com/DPclaude/ios/actions/runs/36536202621/job/109304404041)均成功。
+- [1.2.0 发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.2.0)已公开；标签精确指向上述测试源码。公开下载复核 App 与 Widget 均为 1.2.0（37），大小 977952 字节，SHA256 `29830a4e5dd484649d0c8f5e33c5746596ca954a93805bb743c1a93b0701a7a5`。ZIP 检查通过。
+- App 和 Widget 都包含 CompletePlanIntent/RefreshPlannerIntent 元数据，openAppWhenRun=false。latest 更新源及清单的版本、Bundle ID、IPA URL 和文件大小均已校验。
+
+独立检查后的四项修复：后台保存等待通知队列；组件同步失败可再次发布已保存快照；完成操作等待并发新保存；提醒排程失败会在组件显示并提供重试。核心私有数据仍只有主应用进程写入，组件通过后台 App Intent 调用该进程，`openAppWhenRun=false`。
+
+每日提醒预排未来 30 天，共保留最近 60 条；启动、保存及组件操作后补充。已过去的提醒不补发。通知权限和系统专注模式仍由用户控制。
+
+真机待确认：iPhone 14 Pro / iOS 27.0 上 SideStore 重签名后的桌面后台 Intent、实际通知到达与取消、App Group 同步。模拟器及打包成功不等于已经在用户手机完成这些检查。
+
+## 1.1.0 云端验证
+
+验证日期：2026-09-29。构建 27；源码 `cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c`。Xcode 26.6；iPhone 17 Pro 模拟器 / iOS 26.5。
+
+| 项目 | 结果 |
+|---|---|
+| 业务、存储、组件投影、更新校验 | 19 项通过 |
+| App 状态与保存 | 13 项通过，包括重复完成保护、跨日撤销、保存失败不发布未保存组件数据 |
+| 原生界面 | 4 项通过，包括横向划切、撤销、连续添加、编辑、深色和大字体 |
+| 更新源生成 | 2 项 Node 测试通过 |
+| 真机 Release 编译和打包 | arm64 App 与 Widget 扩展成功；英文签名名称、中文显示名称、App Group 签名元数据、ZIP 完整性检查通过 |
+| 版本发布 | App、组件、更新清单和 SideStore 源均为 1.1.0；公开 IPA 和 JSON 链接可访问 |
+
+[测试与打包成功记录](https://github.com/DPclaude/ios/actions/runs/36528615241/job/109277236047) · [1.1.0 发布页](https://github.com/DPclaude/ios/releases/tag/native-v1.1.0) · [小白说明](ios-beginner-guide.md)
+
+公开 IPA 已下载复核：805296 字节；SHA256 `c1ed63a8f8a302b0797e1a036b9912ac4319c0bf0ba21b12b8018a611e04a31f`，与构建 27 一致。App 与扩展均为 1.1.0（27）。公开的 latest 更新源及清单已核对版本、Bundle ID、下载地址和文件大小。
+
+安装包是供 SideStore 重新签名的 IPA。内嵌临时签名仅携带请求的 App Group 元数据，不是 Apple 分发签名。保留 `com.dpclaude.planner` Bundle ID 和原私有存储位置，不执行数据迁移或清空。组件只读取主 App 成功保存后发布的原子快照。
+
+## 代码审查与回归
+
+独立审查发现并修复：缺少 snapshot 的分类参数；动画取消后未释放界面锁；跨日撤销的普通任务未顺延。版本发布校验另拦截了默认 Info.plist 版本号未继承配置的问题，现显式绑定 App 与扩展的版本号、构建号。
+
+之前的 [构建 19](https://github.com/DPclaude/ios/actions/runs/36522015078) 已验证英文 Planner 签名名称，解决 appIdName 使用中文的配置问题；本版延续该配置。
+
+## 真机仍需验证
+
+| 项目 | 状态 |
+|---|---|
+| 个人 Apple 账户在 SideStore 签名安装，保留组件扩展 | 待用户手机确认 |
+| 覆盖安装后原计划、重复规则和备忘保留 | 待确认；安装前导出备份 |
+| 免费账户 App Group 重签名与组件数据同步 | 待确认；代码读取 SideStore 重写后的 ALTAppGroups |
+| 桌面组件点击进入划切页、刷新速度、震动和手感 | 待确认；WidgetKit 刷新由系统调度 |
+| SideStore 添加更新源及后续覆盖更新 | 公开链接已校验，手机操作待确认 |
+| 自动续签真正触发、刷新有效期 | 未启用／未验证；需要手机配置与实际执行 |
+| iOS 27.0 兼容性、iPhone 14 Pro 性能 | 未做真机测量；不声称固定 120fps |
+
+模拟器通过和公开发布不等于已经替用户完成手机安装、账号授权或自动续签。
+
+## 发布维护
+
+macOS 的 Release 与 release 路径可能指向同一目录；发行附件现独立写入 build/distribution，使用单独的必需归档。缺失附件将使验证失败。首次发布由 GitHub 页面创建发行版、自动任务上传测试过的 IPA；创建发行版的 token 权限不足时不扩大权限或填写个人令牌，保留构建归档并通过已授权 GitHub 页面完成。
+`native-v1.1.0` 的自动源码快照仍指向网页主分支；GitHub 集成拒绝改写标签，未扩大 token 权限。发行说明明确链接本 IPA 实际使用的原生源码 `cfbc2a408619b58b7a9c5a2048f2c8b3ab017c5c/native/Planner`。安装包、更新源及其校验结果不受标签源码快照影响。
