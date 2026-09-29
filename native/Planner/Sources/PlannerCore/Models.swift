@@ -9,11 +9,13 @@ public struct PlannerTask: Codable, Equatable, Sendable, Identifiable {
     public var order: Double
     public var doneAt: Double
     public var rolled: Bool
-    public init(id: String, text: String, date: String, done: Bool = false, cat: Int = 0, order: Double = 0, doneAt: Double = 0, rolled: Bool = false) {
+    public var reminderMinute: Int?
+    public init(id: String, text: String, date: String, done: Bool = false, cat: Int = 0, order: Double = 0, doneAt: Double = 0, rolled: Bool = false, reminderMinute: Int? = nil) {
         self.id = id; self.text = text; self.date = date; self.done = done
         self.cat = cat; self.order = order; self.doneAt = doneAt; self.rolled = rolled
+        self.reminderMinute = reminderMinute
     }
-    enum CodingKeys: String, CodingKey { case id, text, date, done, cat, order, doneAt, rolled }
+    enum CodingKeys: String, CodingKey { case id, text, date, done, cat, order, doneAt, rolled, reminderMinute }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); text = try c.decode(String.self, forKey: .text)
@@ -23,6 +25,7 @@ public struct PlannerTask: Codable, Equatable, Sendable, Identifiable {
         order = try c.decodeIfPresent(Double.self, forKey: .order) ?? 0
         doneAt = try c.decodeIfPresent(Double.self, forKey: .doneAt) ?? 0
         rolled = try c.decodeIfPresent(Bool.self, forKey: .rolled) ?? false
+        reminderMinute = try c.decodeIfPresent(Int.self, forKey: .reminderMinute)
     }
 }
 
@@ -31,18 +34,21 @@ public struct RepeatRule: Codable, Equatable, Sendable, Identifiable {
     public var text: String
     public var cat: Int
     public var from: String
-    public init(id: String, text: String, cat: Int = 0, from: String) {
+    public var reminderMinute: Int?
+    public init(id: String, text: String, cat: Int = 0, from: String, reminderMinute: Int? = nil) {
         self.id = id; self.text = text; self.cat = cat; self.from = from
+        self.reminderMinute = reminderMinute
     }
-    enum CodingKeys: String, CodingKey { case id, text, cat, from }
+    enum CodingKeys: String, CodingKey { case id, text, cat, from, reminderMinute }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); text = try c.decode(String.self, forKey: .text)
         from = try c.decode(String.self, forKey: .from); cat = try c.decodeIfPresent(Int.self, forKey: .cat) ?? 0
+        reminderMinute = try c.decodeIfPresent(Int.self, forKey: .reminderMinute)
     }
 }
 
-public enum TaskReference: Hashable, Sendable {
+public enum TaskReference: Codable, Hashable, Sendable {
     case task(String)
     case repeating(ruleID: String, day: Day)
     public var isRepeating: Bool { if case .repeating = self { return true }; return false }

@@ -6,6 +6,13 @@ import PlannerStore
 enum PlannerWidgetBridge {
     static let kind = "PlannerToday"
     static let deepLink = URL(string: "planner://slice")!
+    private static var errorURL: URL? { archiveURL?.deletingLastPathComponent().appendingPathComponent("widget-interaction-error.txt") }
+    static var interactionError: String? { errorURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) } }
+    static func setInteractionError(_ message: String?) {
+        guard let file = errorURL else { return }
+        if let message { try? Data(message.utf8).write(to: file, options: .atomic) }
+        else if FileManager.default.fileExists(atPath: file.path) { try? FileManager.default.removeItem(at: file) }
+    }
     static var archiveURL: URL? {
         // SideStore rewrites group identifiers and publishes the signed list in ALTAppGroups.
         let signed = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String] ?? []
@@ -17,10 +24,11 @@ enum PlannerWidgetBridge {
         }
         return nil
     }
-    static func publish(_ document: PlannerDocument) -> String? {
+    static func publish(_ snapshot: StoreSnapshot) -> String? {
         guard let file = archiveURL else { return "组件共享空间不可用。请在 SideStore 安装时保留小组件扩展，再重新打开计划本。" }
         do {
-            try WidgetArchive.write(document: document, to: file)
+            try WidgetArchive.write(document: snapshot.document, generation: snapshot.generation, to: file)
+            setInteractionError(nil)
             WidgetCenter.shared.reloadTimelines(ofKind: kind)
             return nil
         } catch { return "组件同步未成功：\(error.localizedDescription)" }

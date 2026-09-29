@@ -8,17 +8,7 @@ import PlannerStore
     @State private var backgroundSave = BackgroundSave()
     private let arguments = ProcessInfo.processInfo.arguments
     init() {
-        var directory = URL.applicationSupportDirectory.appendingPathComponent("Planner", isDirectory: true)
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--uitesting") {
-            directory = URL.applicationSupportDirectory.appendingPathComponent("PlannerUITests", isDirectory: true)
-            if ProcessInfo.processInfo.arguments.contains("--reset-data") { try? FileManager.default.removeItem(at: directory) }
-        }
-        #endif
-        let testing = ProcessInfo.processInfo.arguments.contains("--uitesting")
-        _model = State(initialValue: PlannerViewModel(store: PlannerFileStore(directory: directory), onPersist: { document in
-            testing ? nil : PlannerWidgetBridge.publish(document)
-        }))
+        _model = State(initialValue: PlannerRuntime.shared.model)
     }
     var body: some Scene {
         WindowGroup {
@@ -30,7 +20,7 @@ import PlannerStore
                     Task { await model.load(); await model.refreshCalendar(); model.openSlice() }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { Task { await model.refreshCalendar() } }
+                    if phase == .active { Task { await model.refreshCalendar(); await PlannerRuntime.shared.reminders.refresh() } }
                     else { backgroundSave.flush(model) }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in

@@ -26,10 +26,12 @@ public enum BackupCodec {
         guard Set(document.tasks.map(\.id)).count == document.tasks.count,
               Set(document.repeats.map(\.id)).count == document.repeats.count else { throw BackupError.invalid("任务编号") }
         for t in document.tasks {
+            if let minute = t.reminderMinute, !(0..<1440).contains(minute) { throw BackupError.invalid("提醒时间") }
             guard !t.id.isEmpty, !t.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   Day(rawValue: t.date) != nil, (0...3).contains(t.cat), t.order.isFinite, t.doneAt.isFinite else { throw BackupError.invalid("任务") }
         }
         for r in document.repeats {
+            if let minute = r.reminderMinute, !(0..<1440).contains(minute) { throw BackupError.invalid("提醒时间") }
             guard !r.id.isEmpty, !r.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   Day(rawValue: r.from) != nil, (0...3).contains(r.cat) else { throw BackupError.invalid("重复规则") }
         }

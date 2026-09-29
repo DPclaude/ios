@@ -5,7 +5,7 @@ import PlannerStore
 
 enum SaveState: Equatable { case saved, saving, failed(String) }
 enum PlannerAction {
-    case add(text: String, category: Int, day: Day, repeating: Bool)
+    case add(text: String, category: Int, day: Day, repeating: Bool, reminderMinute: Int? = nil)
     case toggle(TaskReference)
     case edit(TaskReference, text: String, category: Int)
     case reschedule(taskID: String, day: Day)
@@ -41,29 +41,40 @@ struct ImportPreview: Identifiable, Sendable {
     @ObservationIgnored private var queuedRevision: UInt64 = 0
     @ObservationIgnored private var previousToday: Day
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var noteTask: Task<Void, Never>?
     @ObservationIgnored private var undoTask: Task<Void, Never>?
     @ObservationIgnored private var removed: RemovedItem?
     @ObservationIgnored private var undoDeadline = Date.distantPast
     @ObservationIgnored private let onPersist: (PlannerDocument) -> String?
+    @ObservationIgnored private let onSnapshotPersist: (StoreSnapshot) -> String?
 
-    init(store: PlannerFileStore, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }) {
+    init(store: PlannerFileStore, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }) {
         self.store = store; self.now = now; self.timeZone = timeZone
         self.onPersist = onPersist
+        self.onSnapshotPersist = onSnapshotPersist
         let today = Day.today(now: now(), timeZone: timeZone())
         selectedDay = today; previousToday = today
     }
     func load() async {
         guard !isLoaded else { return }
-        do {
-            apply(try await store.load()); isLoaded = true; loadError = nil
-            await refreshCalendar()
-        } catch { loadError = error.localizedDescription }
+        if let loadTask { await loadTask.value; return }
+        let task = Task { @MainActor in
+            do {
+                self.apply(try await self.store.load()); self.isLoaded = true; self.loadError = nil
+                await self.refreshCalendar()
+            } catch { self.loadError = error.localizedDescription }
+        }
+        loadTask = task; await task.value; loadTask = nil
     }
     private func apply(_ value: StoreSnapshot) {
         document = value.document; generation = value.generation; revision = value.revision
         queuedRevision = revision; saveState = .saved; rebuild()
-        widgetMessage = onPersist(value.document)
+        publish(value)
+    }
+    private func publish(_ value: StoreSnapshot) {
+        let legacyMessage = onPersist(value.document)
+        widgetMessage = onSnapshotPersist(value) ?? legacyMessage
     }
     private func rebuild() { snapshot = document.snapshot(day: selectedDay, category: category) }
     func select(day: Day) {
@@ -74,9 +85,10 @@ struct ImportPreview: Identifiable, Sendable {
     func perform(_ action: PlannerAction) {
         guard canEdit else { return }
         switch action {
-        case .add(let text, let cat, let day, let daily):
+        case .add(let text, let cat, let day, let daily, let reminder):
             let id = UUID().uuidString
             document.add(text: text, category: cat, day: day, id: id)
+            document.setReminder(reminder, for: .task(id))
             if daily { document.convertToRepeat(taskID: id, ruleID: UUID().uuidString) }
         case .toggle(let ref): document.toggle(ref, now: now())
         case .edit(let ref, let text, let cat): document.edit(ref, text: text, category: cat)
@@ -98,10 +110,11 @@ struct ImportPreview: Identifiable, Sendable {
         changed(); enqueueSave()
     }
     private func changed() { revision += 1; saveState = .saving; rebuild() }
-    func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false) {
+    func saveEditor(_ reference: TaskReference, text: String, category: Int, originalDay: Day, editedDay: Day, makeDaily: Bool = false, reminderMinute: Int?? = nil) {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canEdit, !value.isEmpty, (0..<4).contains(category) else { return }
         document.edit(reference, text: value, category: category)
+        if let reminderMinute { document.setReminder(reminderMinute, for: reference) }
         if case .task(let id) = reference {
             // An untouched date must preserve any rollover that happened while editing.
             if editedDay != originalDay, let index = document.tasks.firstIndex(where: { $0.id == id }) {
@@ -132,7 +145,7 @@ struct ImportPreview: Identifiable, Sendable {
                 try await fileStore.save(pending)
                 if let self, self.generation == pending.generation, self.revision == pending.revision {
                     self.saveState = .saved
-                    self.widgetMessage = self.onPersist(pending.document)
+                    self.publish(pending)
                 }
             } catch {
                 if let self, self.generation == pending.generation, self.revision == pending.revision { self.saveState = .failed(error.localizedDescription) }
@@ -155,6 +168,23 @@ struct ImportPreview: Identifiable, Sendable {
         if original != document { changed(); enqueueSave() } else { rebuild() }
     }
     func undoDelete() { undoDelete(now: now()) }
+    func completeFromWidget(_ reference: TaskReference, generation expectedGeneration: UUID, day: Day) async throws {
+        await load()
+        guard canEdit else { throw WidgetCompletionError.unavailable }
+        await refreshCalendar()
+        let today = Day.today(now: now(), timeZone: timeZone())
+        guard canEdit, generation == expectedGeneration, day == today else { throw WidgetCompletionError.stale }
+        let current = document.snapshot(day: today, category: nil)
+        if current.open.contains(where: { $0.reference == reference }) {
+            document.toggle(reference, now: now()); changed(); enqueueSave()
+        } else if !current.completed.contains(where: { $0.reference == reference }) {
+            throw WidgetCompletionError.stale
+        }
+        // A retry after a failed disk write must retry persistence, not toggle again.
+        if case .failed = saveState { await retrySave() } else { await flush() }
+        if case .failed(let message) = saveState { throw BackupError.invalid("保存：\(message)") }
+        if let widgetMessage { throw BackupError.invalid(widgetMessage) }
+    }
     func openSlice() {
         guard canEdit else { return }
         select(day: .today(now: now(), timeZone: timeZone()))
@@ -211,5 +241,15 @@ struct ImportPreview: Identifiable, Sendable {
         let restored = try await store.recoverPreviousImport()
         clearUndo(); sliceUndo = nil; apply(restored); isLoaded = true; loadError = nil
         isBusy = false; await refreshCalendar()
+    }
+}
+
+enum WidgetCompletionError: LocalizedError {
+    case unavailable, stale
+    var errorDescription: String? {
+        switch self {
+        case .unavailable: return "暂时不能保存，请打开计划本检查。"
+        case .stale: return "计划已更新，请稍候重试组件。"
+        }
     }
 }

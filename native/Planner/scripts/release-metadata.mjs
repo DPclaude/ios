@@ -14,7 +14,7 @@ export function releaseMetadata({ version, ipa, notes, date = new Date().toISOSt
     website: 'https://github.com/DPclaude/ios',
     apps: [{
       name: 'Planner', bundleIdentifier: 'com.dpclaude.planner', developerName: 'DPclaude',
-      localizedDescription: '中文原生计划本，桌面查看今日计划，点开全屏划切完成。数据保存在本机。',
+      localizedDescription: '中文原生计划本，桌面点勾直接完成计划，每条计划可设置通知提醒。数据保存在本机。',
       iconURL: 'https://raw.githubusercontent.com/DPclaude/ios/main/icon-512-v3.png',
       tintColor: '#ED8627',
       versions: [{ version, date, localizedDescription: notes, downloadURL, size, minOSVersion: '17.0' }],
@@ -25,8 +25,8 @@ export function releaseMetadata({ version, ipa, notes, date = new Date().toISOSt
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [version, ipa, output = 'build/release'] = process.argv.slice(2);
-  const notes = '新增桌面大组件、全屏划切完成与撤销、SideStore 更新入口。保留原有计划和备份。安装时保留小组件扩展。';
+  const [version, ipa, output = 'build/distribution'] = process.argv.slice(2);
+  const notes = '新增桌面直接点勾完成、逐条计划提醒时间与本地通知。完成后取消对应提醒。保留全屏划切与 SideStore 更新。更新时保留小组件扩展，首次设置提醒请允许通知。';
   const { source, update } = releaseMetadata({ version, ipa, notes });
   mkdirSync(output, { recursive: true });
   copyFileSync(ipa, join(output, 'Planner.ipa'));

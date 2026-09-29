@@ -5,6 +5,7 @@ struct PlannerWidgetContent: View {
     let projection: WidgetProjection?
     let message: String?
     let compact: Bool
+    var generation: UUID? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -24,22 +25,34 @@ struct PlannerWidgetContent: View {
                     Label(projection.total == 0 ? "从一件小事开始" : "今天的计划已完成", systemImage: projection.total == 0 ? "pencil" : "checkmark.seal.fill")
                         .font(.subheadline).foregroundStyle(.secondary)
                 } else {
-                    ForEach(Array(projection.titles.prefix(compact ? 1 : 4).enumerated()), id: \.offset) { _, title in
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "circle").font(.caption).foregroundStyle(.orange).padding(.top, 3)
-                            Text(title).font(.subheadline).lineLimit(1)
-                            Spacer(minLength: 0)
+                    ForEach(Array(projection.items.prefix(compact ? 1 : 4))) { item in
+                        if let generation {
+                            Button(intent: CompletePlanIntent(reference: item.reference, generation: generation, day: projection.day)) {
+                                row(item.text)
+                            }.buttonStyle(.plain)
+                                .accessibilityLabel("完成：\(item.text)")
+                        } else {
+                            row(item.text)
                         }
                     }
                 }
                 Spacer(minLength: 0)
                 ProgressView(value: Double(projection.completed), total: Double(max(1, projection.total))).tint(.orange)
-                Text("轻点打开 · 划掉已完成的事").font(.caption2).foregroundStyle(.secondary)
+                Text(message ?? "点计划直接完成 · 点空白处打开")
+                    .font(.caption2).foregroundStyle(message == nil ? Color.secondary : Color.orange).lineLimit(2)
             } else {
                 Text(message ?? "打开计划本，开始今天的计划").font(.subheadline).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Label("打开计划本", systemImage: "arrow.up.forward").font(.caption).foregroundStyle(.orange)
             }
         }
+    }
+    private func row(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle").font(.title3).foregroundStyle(.orange)
+            Text(text).font(.subheadline).lineLimit(1)
+            Spacer(minLength: 0)
+        }.frame(maxWidth: .infinity, minHeight: compact ? 30 : 34, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }

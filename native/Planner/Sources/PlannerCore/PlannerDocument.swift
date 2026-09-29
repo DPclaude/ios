@@ -79,14 +79,14 @@ public struct PlannerDocument: Codable, Equatable, Sendable {
     public mutating func convertToRepeat(taskID: String, ruleID: String) {
         guard let i = tasks.firstIndex(where: { $0.id == taskID }), !repeats.contains(where: { $0.id == ruleID }) else { return }
         let t = tasks.remove(at: i)
-        repeats.append(RepeatRule(id: ruleID, text: t.text, cat: t.cat, from: t.date))
+        repeats.append(RepeatRule(id: ruleID, text: t.text, cat: t.cat, from: t.date, reminderMinute: t.reminderMinute))
         if t.done { repeatDone[t.date, default: []].append(ruleID) }
     }
     public mutating func cancelRepeat(ruleID: String, day: Day, taskID: String, now: Date) {
         guard let rule = repeats.first(where: { $0.id == ruleID }) else { return }
         let done = (repeatDone[day.rawValue] ?? []).contains(ruleID)
         _ = remove(.repeating(ruleID: ruleID, day: day))
-        tasks.append(PlannerTask(id: taskID, text: rule.text, date: day.rawValue, done: done, cat: rule.cat, doneAt: done ? now.timeIntervalSince1970 * 1000 : 0))
+        tasks.append(PlannerTask(id: taskID, text: rule.text, date: day.rawValue, done: done, cat: rule.cat, doneAt: done ? now.timeIntervalSince1970 * 1000 : 0, reminderMinute: rule.reminderMinute))
     }
     public mutating func rollover(today: Day, timeZone: TimeZone) {
         for i in tasks.indices where !tasks[i].done && tasks[i].date < today.rawValue {
