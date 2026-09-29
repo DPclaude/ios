@@ -37,6 +37,8 @@ targets:
       properties:
         CFBundleDisplayName: Planner
         CFBundleName: Planner
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: zh-Hans
         CFBundleURLTypes:
           - CFBundleURLName: com.dpclaude.planner
@@ -69,6 +71,8 @@ targets:
       properties:
         CFBundleDisplayName: Planner Widget
         CFBundleName: PlannerWidget
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: zh-Hans
         ALTAppGroups: [group.com.dpclaude.planner]
         NSExtension:
