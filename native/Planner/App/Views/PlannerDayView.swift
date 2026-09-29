@@ -110,6 +110,7 @@ struct PlannerDayView: View {
     }
     private func categoryButton(_ name: String, value: Int?) -> some View {
         Button(name) { model.select(category: value) }
+            .buttonStyle(.plain)
             .font(.subheadline.weight(.medium)).padding(.horizontal, 14).frame(minHeight: 44)
             .foregroundStyle(model.category == value ? Color.white : .primary)
             .background(model.category == value ? Color.orange : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
