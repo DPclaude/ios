@@ -1,0 +1,74 @@
+name: Native iOS
+on:
+  push:
+    branches: [codex/native-ios]
+    paths: ['native/**', 'native-ios.bundle', '.github/workflows/ios-native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/ios-native.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      revision: ${{ steps.source.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == "refs/heads/codex/native-ios" && -f native-ios.bundle ]]; then
+            git bundle verify native-ios.bundle
+            git fetch ./native-ios.bundle refs/heads/codex/native-ios
+            git restore --source=FETCH_HEAD -- native docs .gitignore
+            git rm native-ios.bundle
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add native docs .gitignore
+            git commit -m 'chore: materialize native source from development bundle'
+            git push origin HEAD:codex/native-ios
+          fi
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: source
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.source.outputs.revision }}
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Core tests
+        run: swift test --package-path native/Planner
+      - name: iOS tests and IPA
+        shell: bash
+        run: |
+          if [[ -f native/Planner/scripts/ci-test.sh ]]; then
+            cd native/Planner
+            bash scripts/ci-test.sh
+            bash scripts/build-ipa.sh
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Planner-native-${{ github.run_number }}
+          path: |
+            native/Planner/build/*.ipa
+            native/Planner/build/*.sha256
+            native/Planner/build/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
