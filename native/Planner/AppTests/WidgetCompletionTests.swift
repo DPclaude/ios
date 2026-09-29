@@ -4,6 +4,28 @@ import PlannerStore
 @testable import Planner
 
 @MainActor final class WidgetCompletionTests: XCTestCase {
+    func testRetapRetriesFailedWidgetPublicationWithoutTogglingAgain() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = PlannerFileStore(directory: dir)
+        var fail = false, publications = 0
+        let model = PlannerViewModel(store: store, onSnapshotPersist: { _ in
+            publications += 1
+            return fail ? "共享副本写入失败" : nil
+        })
+        await model.load()
+        model.perform(.add(text: "重试", category: 0, day: .today(), repeating: false)); await model.flush()
+        let state = try await store.load(), ref = model.snapshot.open[0].reference
+        fail = true
+        do { try await model.completeFromWidget(ref, generation: state.generation, day: .today()); XCTFail("publication failure hidden") } catch {}
+        XCTAssertTrue(model.document.tasks[0].done)
+        let attempts = publications
+        fail = false
+        try await model.completeFromWidget(ref, generation: state.generation, day: .today())
+        XCTAssertGreaterThan(publications, attempts)
+        XCTAssertTrue(model.document.tasks[0].done)
+        XCTAssertNil(model.widgetMessage)
+    }
     func testWidgetCompletionIgnoresSelectedPageAndRepeatedTaps() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }

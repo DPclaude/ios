@@ -18,7 +18,16 @@ public enum StoreError: LocalizedError {
         }
     }
 }
-public actor PlannerFileStore {
+public protocol PlannerStorage: Sendable {
+    func load() async throws -> StoreSnapshot
+    func save(_ snapshot: StoreSnapshot) async throws
+    func replace(with document: PlannerDocument) async throws -> StoreSnapshot
+    func recoverPreviousImport() async throws -> StoreSnapshot
+    func decodeBackup(_ data: Data) async throws -> PlannerDocument
+    func readBackup(url: URL) async throws -> PlannerDocument
+    func encodeBackup(_ document: PlannerDocument) async throws -> Data
+}
+public actor PlannerFileStore: PlannerStorage {
     private struct Envelope: Codable { var schemaVersion = 1; var snapshot: StoreSnapshot }
     private let directory: URL
     private var current: StoreSnapshot?

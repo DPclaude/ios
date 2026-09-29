@@ -33,7 +33,7 @@ struct ImportPreview: Identifiable, Sendable {
     private var sliceUndo: TaskReference?
     var sliceUndoAvailable: Bool { sliceUndo != nil }
     var canEdit: Bool { isLoaded && loadError == nil && !isBusy }
-    @ObservationIgnored private let store: PlannerFileStore
+    @ObservationIgnored private let store: any PlannerStorage
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let timeZone: () -> TimeZone
     @ObservationIgnored private var generation = UUID()
@@ -49,7 +49,7 @@ struct ImportPreview: Identifiable, Sendable {
     @ObservationIgnored private let onPersist: (PlannerDocument) -> String?
     @ObservationIgnored private let onSnapshotPersist: (StoreSnapshot) -> String?
 
-    init(store: PlannerFileStore, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }) {
+    init(store: any PlannerStorage, now: @escaping () -> Date = { Date() }, timeZone: @escaping () -> TimeZone = { .current }, onPersist: @escaping (PlannerDocument) -> String? = { _ in nil }, onSnapshotPersist: @escaping (StoreSnapshot) -> String? = { _ in nil }) {
         self.store = store; self.now = now; self.timeZone = timeZone
         self.onPersist = onPersist
         self.onSnapshotPersist = onSnapshotPersist
