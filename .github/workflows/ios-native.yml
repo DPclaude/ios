@@ -19,7 +19,7 @@ jobs:
     outputs:
       revision: ${{ steps.source.outputs.revision }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
       - id: source
@@ -45,9 +45,14 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
         with:
           ref: ${{ needs.source.outputs.revision }}
+      - uses: actions/cache/restore@v4
+        id: xcodegen-cache
+        with:
+          path: native/Planner/build/XcodeGen
+          key: xcodegen-2.46.0-macos26-xcode26.6-v1
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -62,7 +67,12 @@ jobs:
             bash scripts/ci-test.sh
             bash scripts/build-ipa.sh
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/cache/save@v4
+        if: always() && steps.xcodegen-cache.outputs.cache-hit != 'true'
+        with:
+          path: native/Planner/build/XcodeGen
+          key: xcodegen-2.46.0-macos26-xcode26.6-v1
+      - uses: actions/upload-artifact@v7.0.0
         if: always()
         with:
           name: Planner-native-${{ github.run_number }}
@@ -70,5 +80,7 @@ jobs:
             native/Planner/build/*.ipa
             native/Planner/build/*.sha256
             native/Planner/build/*.xcresult
+            native/Planner/build/screenshots/
+            native/Planner/build/*.log
           if-no-files-found: ignore
           retention-days: 7
