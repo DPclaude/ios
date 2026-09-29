@@ -28,7 +28,7 @@
 
 安装完成后，在 SideStore 中导入 `Planner-unsigned.ipa`，用你的个人账户签名。免费账户通常最多同时安装 3 个这类应用，SideStore 本身占用一个；已有侧载 App 时先查看可用名额，不擅自删除已有应用。
 
-### 你尚未安装 SideStore：首次操作顺序
+### 首次安装 SideStore 的操作顺序（你已安装，可跳过）
 
 1. Windows 先按[官方前置条件](https://docs.sidestore.io/docs/installation/prerequisites)安装 iTunes 驱动和 iloader；手机从 [App Store 安装 LocalDevVPN](https://apps.apple.com/app/localdevvpn/id6755608044)。
 2. 用数据线连接 iPhone，解锁并在手机上信任这台电脑。
