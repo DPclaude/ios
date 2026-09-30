@@ -15,7 +15,7 @@ bash scripts/build-ipa.sh
 
 模拟器测试必须签名：`ci-test.sh` 使用本地 ad-hoc 签名和仅适用于 `iphonesimulator` 的 `Simulator.entitlements`，包含应用标识及私有 Keychain 分组。`QTLOCAL001` 只是模拟器本地命名空间，不是 Apple 开发者团队，不用于设备 IPA。测试对随机独立测试记录执行真实 `SecItemAdd`、`SecItemCopyMatching`、`SecItemUpdate` 和 `SecItemDelete`，没有内存替身，也不忽略权限错误。设备 IPA 的实际应用标识及 Keychain 分组由安装时的有效签名配置生成。
 
-依据 Apple 官方说明，[Keychain 访问分组由签名的应用标识和权限决定](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)，[Xcode 在签名时合并权限文件与构建信息](https://developer.apple.com/documentation/bundleresources/entitlements)。模拟器本地签名配置的实际有效性由上述真实 Keychain XCTest 和签名权限检查验证。
+依据 Apple 官方说明，[Keychain 访问分组由签名的应用标识和权限决定](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)，[Xcode 在签名时合并权限文件与构建信息](https://developer.apple.com/documentation/bundleresources/entitlements)。模拟器本地签名配置的实际有效性由上述真实 Keychain XCTest 和代码签名有效性检查验证。
 
 ## 使用
 
