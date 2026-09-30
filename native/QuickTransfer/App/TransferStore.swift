@@ -20,20 +20,23 @@ final class DiskStore {
     }
     func url(_ name: String) -> URL { root.appendingPathComponent(name) }
     func receipt(_ id: String, pin: String) -> Receipt? { index.receipts.first { $0.id == id && $0.peerPin == pin } }
-    func commit(_ task: RemoteTask, pin: String, downloaded: URL?) throws {
+    func receiptFilename(_ task: RemoteTask, pin: String) -> String { "\(String(pin.prefix(12)))-\(FilePolicy.safeName(task.id))-\(FilePolicy.safeName(task.name))" }
+    // This method touches only deterministic task-owned file paths; it can run off the main actor.
+    func prepareFile(_ task: RemoteTask, pin: String, downloaded: URL?) throws {
+        let destination = url(receiptFilename(task, pin: pin))
+        let exists = FileManager.default.fileExists(atPath: destination.path)
+        if exists, try FilePolicy.hashFile(destination) == task.hash { return }
+        guard let downloaded, try FilePolicy.hashFile(downloaded) == task.hash else { throw TransferError(message: "文件校验失败，未发送保存回执") }
+        let h = try FileHandle(forWritingTo: downloaded); defer { try? h.close() }; try h.synchronize()
+        // POSIX rename atomically replaces only this transfer's private destination after validation.
+        guard rename(downloaded.path, destination.path) == 0 else { throw TransferError(message: "无法保存收到的文件（\(errno)）") }
+    }
+    func commit(_ task: RemoteTask, pin: String, downloaded: URL?, filePrepared: Bool = false) throws {
         if receipt(task.id, pin: pin) != nil { return }
         let name = FilePolicy.safeName(task.name)
         // Stable private task path makes a crash between file move and index write recoverable.
-        let filename = task.kind == "file" ? "\(String(pin.prefix(12)))-\(FilePolicy.safeName(task.id))-\(name)" : nil
-        if let filename {
-            let destination = url(filename)
-            if !FileManager.default.fileExists(atPath: destination.path) {
-                guard let downloaded else { throw TransferError(message: "接收文件不存在") }
-                try FileManager.default.moveItem(at: downloaded, to: destination)
-            }
-            guard try FilePolicy.hashFile(destination) == task.hash else { throw TransferError(message: "文件校验失败，未发送保存回执") }
-            let h = try FileHandle(forWritingTo: destination); defer { try? h.close() }; try h.synchronize()
-        }
+        let filename = task.kind == "file" ? receiptFilename(task, pin: pin) : nil
+        if filename != nil && !filePrepared { try prepareFile(task, pin: pin, downloaded: downloaded) }
         index.receipts.append(Receipt(id: task.id, peerPin: pin, name: name, filename: filename, text: task.text, date: Date(), acknowledged: false))
         do { try save() } catch { index.receipts.removeLast(); throw error }
     }
@@ -46,6 +49,8 @@ final class DiskStore {
     @Published var receipts: [Receipt] = []
     @Published var outgoing: [Outgoing] = []
     @Published var receiving: String?
+    @Published var receiveProgress: Double = 0
+    private var receiveID: String?
     @Published var remoteTasks: [RemoteTask] = []
     @Published var connected = false
     @Published var autoReceive = UserDefaults.standard.object(forKey: "autoReceive") as? Bool ?? true
@@ -54,13 +59,12 @@ final class DiskStore {
     private var transport: Transport?
     private var loop: Task<Void, Never>?
     private var pairing: Task<Void, Never>?
-    private var generation = UUID()
     private let discovery = Discovery()
     init() {
         do { disk = try DiskStore(); peer = try CredentialStore.load(); refresh() }
         catch { self.error = "本地记录读取失败，原文件已保留：\(error.localizedDescription)" }
     }
-    func refresh() { receipts = disk?.index.receipts.reversed() ?? []; outgoing = disk?.index.outgoing ?? [] }
+    func refresh() { receipts = Array((disk?.index.receipts ?? []).reversed()); outgoing = disk?.index.outgoing ?? [] }
     func foreground(_ active: Bool) {
         loop?.cancel(); loop = nil
         if !active { connected = false; status = "已暂停 · 回到 App 后继续"; return }
@@ -118,6 +122,7 @@ final class DiskStore {
         try Task.checkCancellation()
         remoteTasks = state.tasks; connected = true; status = "已连接 · 同一 Wi-Fi"; error = nil
         for item in disk.index.receipts where item.peerPin == t.peer.pin && !item.acknowledged {
+            if state.tasks.contains(where: { $0.id == item.id && $0.state == "已取消" }) { continue }
             _ = try await t.raw("/api/ack", method: "POST", json: ["id": item.id])
             if let i = disk.index.receipts.firstIndex(where: { $0.id == item.id && $0.peerPin == item.peerPin }) { disk.index.receipts[i].acknowledged = true; try disk.save() }
         }
@@ -125,21 +130,23 @@ final class DiskStore {
             for item in state.tasks where item.direction == "out" && item.state != "已取消" && item.state != "正在准备" && item.state != "手机已收到" && item.state != "已保存到手机" && item.state != "完成" {
                 try Task.checkCancellation()
                 if disk.receipt(item.id, pin: t.peer.pin) != nil { continue }
-                receiving = item.name; defer { receiving = nil }
+                receiving = item.name; receiveID = item.id; receiveProgress = 0
+                defer { receiving = nil; receiveID = nil; t.delegate.progress = nil }
                 if item.kind == "text" { try disk.commit(item, pin: t.peer.pin, downloaded: nil) }
                 else {
                     guard let hash = item.hash, hash.count == 64 else { continue }
                     let capacity = try disk.root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage ?? 0
                     guard capacity > item.size + (32 << 20) else { throw TransferError(message: "iPhone 存储空间不足，需额外保留 32 MB") }
+                    t.delegate.progress = { [weak self] value in Task { @MainActor in self?.receiveProgress = value } }
                     let (temp, response) = try await t.session.download(for: t.request("/api/download/\(item.id)"))
                     defer { try? FileManager.default.removeItem(at: temp) }
                     try Transport.check((response as? HTTPURLResponse)?.statusCode ?? 0)
                     try Task.checkCancellation()
                     let attrs = try FileManager.default.attributesOfItem(atPath: temp.path)
                     guard (attrs[.size] as? NSNumber)?.int64Value == item.size else { throw TransferError(message: "文件大小不符，请重试") }
-                    let calculated = try await Task.detached { try FilePolicy.hashFile(temp) }.value
-                    guard calculated == hash else { throw TransferError(message: "文件校验失败，未发送保存回执") }
-                    try disk.commit(item, pin: t.peer.pin, downloaded: temp)
+                    try await Task.detached { try disk.prepareFile(item, pin: t.peer.pin, downloaded: temp) }.value
+                    try Task.checkCancellation()
+                    try disk.commit(item, pin: t.peer.pin, downloaded: nil, filePrepared: true)
                 }
                 refresh()
                 _ = try await t.raw("/api/ack", method: "POST", json: ["id": item.id])
@@ -162,11 +169,14 @@ final class DiskStore {
         let filename = ".send-\(UUID().uuidString)"
         let dest = disk.url(filename)
         do {
-            try FileManager.default.copyItem(at: url, to: dest)
-            let hash = try await Task.detached { try FilePolicy.hashFile(dest) }.value
+            let hash = try await Task.detached {
+                try FileManager.default.copyItem(at: url, to: dest)
+                return try FilePolicy.hashFile(dest)
+            }.value
             let size = (try FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? NSNumber)?.int64Value ?? 0
             disk.index.outgoing.append(Outgoing(peerPin: peer.pin, name: FilePolicy.safeName(url.lastPathComponent), filename: filename, size: size, hash: hash))
-            try disk.save(); refresh()
+            do { try disk.save() } catch { disk.index.outgoing.removeLast(); throw error }
+            refresh()
         } catch { try? FileManager.default.removeItem(at: dest); self.error = error.localizedDescription }
     }
     func upload(_ id: String, transport t: Transport) async throws {
@@ -176,8 +186,9 @@ final class DiskStore {
         if let remoteID = item.remoteID { remote = try await t.get(RemoteTask.self, "/api/task", query: ["id": remoteID]) }
         else {
             remote = try await t.get(RemoteTask.self, "/api/upload", method: "POST", json: ["name": item.name, "size": item.size, "hash": item.hash])
-            item.remoteID = remote.id; disk.index.outgoing[index] = item; try disk.save()
+            item.remoteID = remote.id; disk.index.outgoing[index].remoteID = remote.id; try disk.save()
         }
+        if disk.index.outgoing[index].cancelled { return }
         if remote.state != "完成" {
             guard remote.state == "上传中", remote.offset >= 0, remote.offset <= item.size else { throw TransferError(message: "电脑任务已取消或不可继续，请取消后重发") }
             let h = try FileHandle(forReadingFrom: disk.url(item.filename)); defer { try? h.close() }
@@ -197,6 +208,8 @@ final class DiskStore {
                 disk.index.outgoing[index].status = "正在发送"; refresh()
             }
             disk.index.outgoing[index].status = "等待电脑保存确认"; refresh()
+            try Task.checkCancellation()
+            if disk.index.outgoing[index].cancelled { return }
             remote = try await t.get(RemoteTask.self, "/api/finish", method: "POST", json: ["id": remote.id])
         }
         guard remote.state == "完成" else { throw TransferError(message: "电脑尚未确认保存") }
@@ -206,7 +219,16 @@ final class DiskStore {
     func cancel(_ id: String) {
         guard let disk, let i = disk.index.outgoing.firstIndex(where: { $0.id == id }) else { return }
         disk.index.outgoing[i].cancelled = true; disk.index.outgoing[i].status = "已取消"
-        do { try disk.save(); refresh() } catch { self.error = error.localizedDescription }
+        do { try disk.save(); try? FileManager.default.removeItem(at: disk.url(disk.index.outgoing[i].filename)); refresh() } catch { self.error = error.localizedDescription }
+    }
+    func cancelReceiving() {
+        guard let id = receiveID, let t = transport else { return }
+        loop?.cancel()
+        Task {
+            do { _ = try await t.raw("/api/cancel", method: "POST", json: ["id": id]) }
+            catch { self.error = "取消尚未送达电脑：\(error.localizedDescription)" }
+            foreground(true)
+        }
     }
     func sendText(_ text: String) async {
         guard let transport, !text.isEmpty else { return }

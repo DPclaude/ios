@@ -44,4 +44,17 @@ final class ProtocolTests: XCTestCase {
         XCTAssertThrowsError(try store.commit(task, pin: "pin", downloaded: file))
         XCTAssertTrue(store.index.receipts.isEmpty)
     }
+    func testCorruptOrphanIsReplacedOnlyWithVerifiedNewDownload() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = try DiskStore(root: root)
+        let task = RemoteTask(id: "orphan", direction: "out", kind: "file", name: "report.txt", text: nil, size: 5, offset: 0, hash: FilePolicy.digest(Data("right".utf8)), state: "等待")
+        let destination = store.url(store.receiptFilename(task, pin: "pin"))
+        try Data("wrong".utf8).write(to: destination)
+        let downloaded = root.appendingPathComponent("new")
+        try Data("right".utf8).write(to: downloaded)
+        try store.commit(task, pin: "pin", downloaded: downloaded)
+        XCTAssertEqual(try Data(contentsOf: destination), Data("right".utf8))
+        XCTAssertEqual(try DiskStore(root: root).index.receipts.count, 1)
+    }
 }

@@ -16,7 +16,9 @@ struct Peer: Codable, Equatable {
     var token: String = ""
     static func parse(_ raw: String) throws -> Peer {
         guard let c = URLComponents(string: raw), c.scheme == "quicktransfer", c.host == "pair" else { throw TransferError(message: "这不是快捷互传配对码") }
-        let q = Dictionary((c.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { _, last in last })
+        let items = c.queryItems ?? []
+        guard Set(items.map(\.name)).count == items.count else { throw TransferError(message: "配对码包含重复字段") }
+        let q = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
         let host = q["host"] ?? "", pin = (q["pin"] ?? "").lowercased()
         guard !host.isEmpty, !host.contains("/"), !host.contains("@"), let port = Int(q["port"] ?? "39278"), (1...65535).contains(port), pin.count == 64, pin.allSatisfy({ $0.isHexDigit && $0.isASCII }), !(q["secret"] ?? "").isEmpty else { throw TransferError(message: "配对码内容不完整") }
         return Peer(host: host, port: port, pin: pin, secret: q["secret"]!, name: q["name"] ?? "我的电脑", hostname: q["hostname"] ?? "")
@@ -57,7 +59,8 @@ struct Outgoing: Codable, Identifiable {
 }
 enum FilePolicy {
     static func safeName(_ raw: String) -> String {
-        let s = String(raw.map { "/\\:\0".contains($0) || $0.asciiValue.map({ $0 < 32 }) == true ? Character("_") : $0 }.prefix(160)).trimmingCharacters(in: .whitespacesAndNewlines)
+        var s = String(raw.map { "/\\:\0".contains($0) || $0.asciiValue.map({ $0 < 32 }) == true ? Character("_") : $0 }.prefix(160)).trimmingCharacters(in: .whitespacesAndNewlines)
+        while s.utf8.count > 180 { s.removeLast() }
         return s.isEmpty || s == "." || s == ".." ? "未命名文件" : s
     }
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
@@ -93,8 +96,9 @@ enum CredentialStore {
         guard s == errSecSuccess || s == errSecItemNotFound else { throw TransferError(message: "无法移除配对凭据") }
     }
 }
-final class PinnedDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
+final class PinnedDelegate: NSObject, URLSessionDelegate, URLSessionDownloadDelegate {
     let pin: String
+    var progress: ((Double) -> Void)?
     init(pin: String) { self.pin = pin }
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
@@ -106,6 +110,10 @@ final class PinnedDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate
         completionHandler(.useCredential, URLCredential(trust: trust))
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {}
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        if totalBytesExpectedToWrite > 0 { progress?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)) }
+    }
 }
 final class Transport {
     let peer: Peer

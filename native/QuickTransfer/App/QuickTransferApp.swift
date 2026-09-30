@@ -4,6 +4,7 @@ import Photos
 import UniformTypeIdentifiers
 import AVFoundation
 import CoreTransferable
+import QuickLook
 
 @main struct QuickTransferApp: App {
     @StateObject private var store = TransferStore()
@@ -62,7 +63,7 @@ struct HomeView: View {
                         } footer: { Text("请保持 App 在前台。收到的文件保存在 App 中，可预览、分享或存入相册。") }
                     }
                     if let error = store.error { Section { Text(error).foregroundStyle(.orange); Button("重试连接") { store.foreground(true) } } }
-                    if let receiving = store.receiving { Section("正在接收") { HStack { ProgressView(); Text(receiving) }; Text("下载完成后校验并保存").font(.caption).foregroundStyle(.secondary) } }
+                    if let receiving = store.receiving { Section("正在接收") { HStack { Text(receiving); Spacer(); Button("取消") { store.cancelReceiving() } }; ProgressView(value: store.receiveProgress); Text("下载完成后校验并保存").font(.caption).foregroundStyle(.secondary) } }
                     if !store.outgoing.isEmpty {
                         Section("发送任务") {
                             ForEach(store.outgoing.reversed()) { item in
@@ -113,14 +114,15 @@ struct HomeView: View {
 struct ReceiptRow: View {
     @EnvironmentObject var store: TransferStore
     let receipt: Receipt
-    @State private var share = false
+    @State private var previewURL: URL?
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(receipt.name, systemImage: receipt.text == nil ? "doc.fill" : "text.bubble.fill").font(.headline)
             if let text = receipt.text { Text(text).lineLimit(4); Button("复制文字") { UIPasteboard.general.string = text } }
             if let url = store.fileURL(receipt) {
                 HStack {
-                    ShareLink(item: url) { Label("预览 / 分享", systemImage: "square.and.arrow.up") }
+                    Button("预览") { previewURL = url }
+                    ShareLink(item: url) { Label("分享", systemImage: "square.and.arrow.up") }
                     if ["jpg", "jpeg", "png", "heic", "gif"].contains(url.pathExtension.lowercased()) {
                         Button("存入相册") { Task {
                             let permission = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
@@ -132,7 +134,7 @@ struct ReceiptRow: View {
                 }.font(.caption).buttonStyle(.borderless)
             }
             Text("已保存到 App · " + receipt.date.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-        }.padding(.vertical, 6)
+        }.padding(.vertical, 6).quickLookPreview($previewURL)
     }
 }
 struct SettingsView: View {
