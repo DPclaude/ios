@@ -13,6 +13,10 @@ bash scripts/build-ipa.sh
 
 产物为 `build/QuickTransfer-unsigned.ipa`，需要通过 SideStore 等用户自己的签名安装流程重新签名。构建脚本不会读取 Apple 账户或设置付费签名能力。Simulator XCTest 不代替真机配对和本地网络权限验收。
 
+模拟器测试必须签名：`ci-test.sh` 使用本地 ad-hoc 签名和仅适用于 `iphonesimulator` 的 `Simulator.entitlements`，包含应用标识及私有 Keychain 分组。`QTLOCAL001` 只是模拟器本地命名空间，不是 Apple 开发者团队，不用于设备 IPA。测试对随机独立测试记录执行真实 `SecItemAdd`、`SecItemCopyMatching`、`SecItemUpdate` 和 `SecItemDelete`，没有内存替身，也不忽略权限错误。设备 IPA 的实际应用标识及 Keychain 分组由安装时的有效签名配置生成。
+
+依据 Apple 官方说明，[Keychain 访问分组由签名的应用标识和权限决定](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)，[Xcode 在签名时合并权限文件与构建信息](https://developer.apple.com/documentation/bundleresources/entitlements)。模拟器本地签名配置的实际有效性由上述真实 Keychain XCTest 和签名权限检查验证。
+
 ## 使用
 
 电脑端打开原生快捷互传并生成连接二维码。手机扫描后在电脑上核对同一六位核对码并确认。手机身份凭据和电脑证书指纹保存在 Keychain；再次扫描相同电脑只更新地址，不请求新设备。电脑更换证书需要主动断开旧连接再配对。

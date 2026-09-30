@@ -71,7 +71,7 @@ enum QueuePolicy {
     }
     static func isTerminal(_ error: Error) -> Bool {
         guard let e = error as? TransferError else { return false }
-        return e.terminalTask || e.statusCode == 404 || (e.statusCode == 400 && e.message.contains("任务不存在"))
+        return e.terminalTask || e.statusCode == 404 || (e.statusCode == 400 && (e.message.contains("任务不存在") || e.message.contains("无法取消已完成任务")))
     }
     // Global connection/auth failures stop the pass; an individual task failure cannot starve later tasks.
     @MainActor static func run<Item>(_ items: [Item], operation: (Item) async throws -> Void, failed: (Item, Error) throws -> Void) async throws {
@@ -98,26 +98,27 @@ enum FilePolicy {
     }
 }
 enum CredentialStore {
-    static let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.pandong.quicktransfer.peer", kSecAttrAccount as String: "current"]
-    static func load() throws -> Peer? {
-        var q = query; q[kSecReturnData as String] = true
+    private static func query(account: String) -> [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.pandong.quicktransfer.peer", kSecAttrAccount as String: account] }
+    static func load(account: String = "current") throws -> Peer? {
+        var q = query(account: account); q[kSecReturnData as String] = true
         var item: CFTypeRef?
         let code = SecItemCopyMatching(q as CFDictionary, &item)
         if code == errSecItemNotFound { return nil }
         guard code == errSecSuccess, let data = item as? Data else { throw TransferError(message: "无法读取配对凭据（\(code)）") }
         return try JSONDecoder().decode(Peer.self, from: data)
     }
-    static func save(_ peer: Peer) throws {
+    static func save(_ peer: Peer, account: String = "current") throws {
         let data = try JSONEncoder().encode(peer)
-        let result = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let baseQuery = query(account: account)
+        let result = SecItemUpdate(baseQuery as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if result == errSecSuccess { return }
         guard result == errSecItemNotFound else { throw TransferError(message: "无法更新配对凭据（\(result)）") }
-        var q = query; q[kSecValueData as String] = data; q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        var q = baseQuery; q[kSecValueData as String] = data; q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         let status = SecItemAdd(q as CFDictionary, nil)
         guard status == errSecSuccess else { throw TransferError(message: "无法保存配对凭据（\(status)）") }
     }
-    static func clear() throws {
-        let s = SecItemDelete(query as CFDictionary)
+    static func clear(account: String = "current") throws {
+        let s = SecItemDelete(query(account: account) as CFDictionary)
         guard s == errSecSuccess || s == errSecItemNotFound else { throw TransferError(message: "无法移除配对凭据") }
     }
 }

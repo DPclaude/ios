@@ -2,6 +2,24 @@ import XCTest
 @testable import QuickTransfer
 
 final class ProtocolTests: XCTestCase {
+    func testRealKeychainCredentialRoundTripAndUpdate() throws {
+        let account = "xctest-" + UUID().uuidString
+        defer { try? CredentialStore.clear(account: account) }
+        XCTAssertNil(try CredentialStore.load(account: account))
+        var peer = Peer(host: "192.168.1.2", port: 39278, pin: String(repeating: "a", count: 64), secret: "", name: "Test PC", hostname: "test.local", token: "test-only-credential")
+        try CredentialStore.save(peer, account: account)
+        XCTAssertEqual(try CredentialStore.load(account: account), peer)
+        peer.host = "192.168.1.3"; peer.token = "updated-test-only-credential"
+        try CredentialStore.save(peer, account: account)
+        XCTAssertEqual(try CredentialStore.load(account: account), peer)
+        try CredentialStore.clear(account: account)
+        XCTAssertNil(try CredentialStore.load(account: account))
+    }
+    func testCompletedCancellationBecomesTerminalWithoutClaimingNewDelivery() {
+        let error = TransferError(message: "内容已保存，无法取消已完成任务", statusCode: 400)
+        XCTAssertTrue(QueuePolicy.isTerminal(error))
+        XCTAssertFalse(QueuePolicy.isGlobal(error))
+    }
     func testPairRequiresExactFingerprint() throws {
         XCTAssertThrowsError(try Peer.parse("https://example.com/pair"))
         XCTAssertThrowsError(try Peer.parse("quicktransfer://pair?host=127.0.0.1&pin=bad&secret=a"))

@@ -18,11 +18,15 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.pandong.quicktransfer
         ENABLE_TESTABILITY: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]": Simulator.entitlements
+        "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": '-'
     info:
       path: build/Info.plist
       properties:
         CFBundleName: QuickTransfer
         CFBundleDisplayName: QuickTransfer
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: zh-Hans
         UILaunchScreen: {}
         NSCameraUsageDescription: 扫描电脑上的二维码，安全连接这台电脑。
