@@ -19,7 +19,43 @@ final class DiskStore {
         let fd = open(root.path, O_RDONLY); if fd >= 0 { defer { close(fd) }; guard fsync(fd) == 0 else { throw TransferError(message: "无法保存接收目录") } }
     }
     func url(_ name: String) -> URL { root.appendingPathComponent(name) }
-    func receipt(_ id: String, pin: String) -> Receipt? { index.receipts.first { $0.id == id && $0.peerPin == pin } }
+    func receipt(_ id: String, pin: String) -> Receipt? { index.receipts.first { $0.id == id && $0.peerPin == pin && $0.needsRecovery != true } }
+    func receiptIsValid(_ receipt: Receipt, for task: RemoteTask) -> Bool {
+        guard receipt.id == task.id, task.direction == "out" else { return false }
+        if task.kind == "text" { return receipt.filename == nil && receipt.text == task.text && receipt.text != nil }
+        guard task.kind == "file", let filename = receipt.filename,
+              filename == receiptFilename(task, pin: receipt.peerPin), let hash = task.hash else { return false }
+        let file = url(filename)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
+              attrs[.type] as? FileAttributeType == .typeRegular,
+              (attrs[.size] as? NSNumber)?.int64Value == task.size else { return false }
+        return (try? FilePolicy.hashFile(file)) == hash
+    }
+    func markForRecovery(_ receipt: Receipt) throws {
+        guard let i = index.receipts.firstIndex(where: { $0.id == receipt.id && $0.peerPin == receipt.peerPin }) else { return }
+        let previous = index.receipts[i]
+        index.receipts[i].needsRecovery = true; index.receipts[i].acknowledged = false
+        do { try save() } catch { index.receipts[i] = previous; throw error }
+    }
+    func stopReceiptRetry(_ receipt: Receipt, reason: String) throws {
+        guard let i = index.receipts.firstIndex(where: { $0.id == receipt.id && $0.peerPin == receipt.peerPin }) else { return }
+        let previous = index.receipts[i]
+        index.receipts[i].retryStoppedReason = reason
+        do { try save() } catch { index.receipts[i] = previous; throw error }
+    }
+    func finishCancellation(_ id: String) throws {
+        guard let i = index.outgoing.firstIndex(where: { $0.id == id }) else { return }
+        let previous = index.outgoing[i]
+        index.outgoing[i].cancelConfirmed = true; index.outgoing[i].status = "已取消"
+        do { try save() } catch { index.outgoing[i] = previous; throw error }
+    }
+    func outgoingFailed(_ id: String, error: Error) throws {
+        guard let i = index.outgoing.firstIndex(where: { $0.id == id }) else { return }
+        let previous = index.outgoing[i]
+        index.outgoing[i].status = "未完成：\(error.localizedDescription)"
+        if QueuePolicy.isTerminal(error) { index.outgoing[i].retryStoppedReason = error.localizedDescription }
+        do { try save() } catch { index.outgoing[i] = previous; throw error }
+    }
     func receiptFilename(_ task: RemoteTask, pin: String) -> String { "\(String(pin.prefix(12)))-\(FilePolicy.safeName(task.id))-\(FilePolicy.safeName(task.name))" }
     // This method touches only deterministic task-owned file paths; it can run off the main actor.
     func prepareFile(_ task: RemoteTask, pin: String, downloaded: URL?) throws {
@@ -37,8 +73,10 @@ final class DiskStore {
         // Stable private task path makes a crash between file move and index write recoverable.
         let filename = task.kind == "file" ? receiptFilename(task, pin: pin) : nil
         if filename != nil && !filePrepared { try prepareFile(task, pin: pin, downloaded: downloaded) }
+        let previous = index.receipts
+        index.receipts.removeAll { $0.id == task.id && $0.peerPin == pin }
         index.receipts.append(Receipt(id: task.id, peerPin: pin, name: name, filename: filename, text: task.text, date: Date(), acknowledged: false))
-        do { try save() } catch { index.receipts.removeLast(); throw error }
+        do { try save() } catch { index.receipts = previous; throw error }
     }
 }
 
@@ -58,15 +96,16 @@ final class DiskStore {
     private var disk: DiskStore?
     private var transport: Transport?
     private var loop: Task<Void, Never>?
+    private var heartbeat: Task<Void, Never>?
     private var pairing: Task<Void, Never>?
     private let discovery = Discovery()
     init() {
         do { disk = try DiskStore(); peer = try CredentialStore.load(); refresh() }
         catch { self.error = "本地记录读取失败，原文件已保留：\(error.localizedDescription)" }
     }
-    func refresh() { receipts = Array((disk?.index.receipts ?? []).reversed()); outgoing = disk?.index.outgoing ?? [] }
+    func refresh() { receipts = Array((disk?.index.receipts ?? []).filter { $0.needsRecovery != true }.reversed()); outgoing = disk?.index.outgoing ?? [] }
     func foreground(_ active: Bool) {
-        loop?.cancel(); loop = nil
+        loop?.cancel(); loop = nil; heartbeat?.cancel(); heartbeat = nil
         if !active { connected = false; status = "已暂停 · 回到 App 后继续"; return }
         guard let peer, disk != nil else { return }
         discovery.start(hostname: peer.hostname) { [weak self] host in
@@ -76,6 +115,19 @@ final class DiskStore {
             self.peer = p; try? CredentialStore.save(p); self.transport = Transport(p)
         }
         transport = Transport(peer)
+        heartbeat = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(20)) } catch { return }
+                guard let self, let t = self.transport else { return }
+                do {
+                    _ = try await t.raw("/api/touch", method: "POST", json: [:])
+                    try Task.checkCancellation()
+                } catch {
+                    if Task.isCancelled { return }
+                    self.connected = false; self.status = "暂时无法连接"; self.error = error.localizedDescription
+                }
+            }
+        }
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -93,10 +145,20 @@ final class DiskStore {
         pairing = Task {
             do {
                 var p = try Peer.parse(raw)
+                var replacingRevokedCredential = false
                 if let old = peer, old.pin == p.pin {
-                    p.token = old.token; p.secret = ""; try CredentialStore.save(p); peer = p; foreground(true); return
+                    var candidate = p; candidate.token = old.token
+                    do {
+                        let _: RemoteState = try await Transport(candidate).get(RemoteState.self, "/api/state")
+                        candidate.secret = ""; try CredentialStore.save(candidate); peer = candidate; foreground(true); return
+                    } catch let failure as TransferError where failure.statusCode == 401 {
+                        // Only an authenticated server's explicit revocation permits a new identity.
+                        // Network/TLS errors preserve the old credential and do not create duplicates.
+                        replacingRevokedCredential = true
+                        loop?.cancel(); heartbeat?.cancel(); discovery.stop(); connected = false
+                    }
                 }
-                guard peer == nil else { throw TransferError(message: "请先在设置中断开当前电脑，再连接另一台电脑") }
+                guard peer == nil || replacingRevokedCredential else { throw TransferError(message: "请先在设置中断开当前电脑，再连接另一台电脑") }
                 status = "正在请求电脑确认"
                 let t = Transport(p)
                 let result = try await t.get([String: String].self, "/api/pair", method: "POST", json: ["secret": p.secret, "name": phoneName])
@@ -121,14 +183,26 @@ final class DiskStore {
         let state = try await t.get(RemoteState.self, "/api/state")
         try Task.checkCancellation()
         remoteTasks = state.tasks; connected = true; status = "已连接 · 同一 Wi-Fi"; error = nil
-        for item in disk.index.receipts where item.peerPin == t.peer.pin && !item.acknowledged {
-            if state.tasks.contains(where: { $0.id == item.id && $0.state == "已取消" }) { continue }
+        let pendingReceipts = disk.index.receipts.filter { $0.peerPin == t.peer.pin && !$0.acknowledged && $0.retryStoppedReason == nil }
+        try await QueuePolicy.run(pendingReceipts, operation: { item in
+            guard let task = state.tasks.first(where: { $0.id == item.id }), task.state != "已取消" else {
+                try disk.stopReceiptRetry(item, reason: "电脑任务已过期或已取消；本地文件保留"); return
+            }
+            let valid = await Task.detached { disk.receiptIsValid(item, for: task) }.value
+            try Task.checkCancellation()
+            guard valid else { try disk.markForRecovery(item); self.refresh(); return }
             _ = try await t.raw("/api/ack", method: "POST", json: ["id": item.id])
-            if let i = disk.index.receipts.firstIndex(where: { $0.id == item.id && $0.peerPin == item.peerPin }) { disk.index.receipts[i].acknowledged = true; try disk.save() }
-        }
+            if let i = disk.index.receipts.firstIndex(where: { $0.id == item.id && $0.peerPin == item.peerPin }) { disk.index.receipts[i].acknowledged = true; disk.index.receipts[i].needsRecovery = nil; try disk.save() }
+        }, failed: { item, error in
+            if QueuePolicy.isTerminal(error) { try disk.stopReceiptRetry(item, reason: error.localizedDescription) }
+            self.error = "\(item.name)：\(error.localizedDescription)"
+        })
         if autoReceive {
-            for item in state.tasks where item.direction == "out" && item.state != "已取消" && item.state != "正在准备" && item.state != "手机已收到" && item.state != "已保存到手机" && item.state != "完成" {
+            let recoveryIDs = Set(disk.index.receipts.filter { $0.peerPin == t.peer.pin && $0.needsRecovery == true && $0.retryStoppedReason == nil }.map(\.id))
+            for item in state.tasks where item.direction == "out" && item.state != "已取消" && item.state != "正在准备" && (recoveryIDs.contains(item.id) || (item.state != "手机已收到" && item.state != "已保存到手机" && item.state != "完成")) {
+                do {
                 try Task.checkCancellation()
+                if disk.index.receipts.contains(where: { $0.id == item.id && $0.peerPin == t.peer.pin && $0.retryStoppedReason != nil }) { continue }
                 if disk.receipt(item.id, pin: t.peer.pin) != nil { continue }
                 receiving = item.name; receiveID = item.id; receiveProgress = 0
                 defer { receiving = nil; receiveID = nil; t.delegate.progress = nil }
@@ -149,18 +223,30 @@ final class DiskStore {
                     try disk.commit(item, pin: t.peer.pin, downloaded: nil, filePrepared: true)
                 }
                 refresh()
+                guard let saved = disk.receipt(item.id, pin: t.peer.pin) else { continue }
+                let valid = await Task.detached { disk.receiptIsValid(saved, for: item) }.value
+                try Task.checkCancellation()
+                guard valid else { try disk.markForRecovery(saved); refresh(); continue }
                 _ = try await t.raw("/api/ack", method: "POST", json: ["id": item.id])
-                if let i = disk.index.receipts.firstIndex(where: { $0.id == item.id && $0.peerPin == t.peer.pin }) { disk.index.receipts[i].acknowledged = true; try disk.save() }
+                if let i = disk.index.receipts.firstIndex(where: { $0.id == item.id && $0.peerPin == t.peer.pin }) { disk.index.receipts[i].acknowledged = true; disk.index.receipts[i].needsRecovery = nil; try disk.save() }
+                } catch {
+                    if QueuePolicy.isGlobal(error) { throw error }
+                    if QueuePolicy.isTerminal(error), let receipt = disk.receipt(item.id, pin: t.peer.pin) { try disk.stopReceiptRetry(receipt, reason: error.localizedDescription) }
+                    self.error = "\(item.name)：\(error.localizedDescription)"
+                }
             }
         }
-        for item in disk.index.outgoing where item.peerPin == t.peer.pin && item.status != "已保存到电脑" {
-            try Task.checkCancellation()
+        let pendingSends = disk.index.outgoing.filter { $0.peerPin == t.peer.pin && $0.status != "已保存到电脑" && $0.cancelConfirmed != true && $0.retryStoppedReason == nil }
+        try await QueuePolicy.run(pendingSends, operation: { item in
             if item.cancelled {
                 if let id = item.remoteID { _ = try await t.raw("/api/cancel", method: "POST", json: ["id": id]) }
-                continue
+                try disk.finishCancellation(item.id); return
             }
-            try await upload(item.id, transport: t)
-        }
+            try await self.upload(item.id, transport: t)
+        }, failed: { item, error in
+            try disk.outgoingFailed(item.id, error: error)
+            self.error = "\(item.name)：\(error.localizedDescription)"
+        })
         refresh()
     }
     func importFile(_ url: URL) async {
@@ -190,7 +276,7 @@ final class DiskStore {
         }
         if disk.index.outgoing[index].cancelled { return }
         if remote.state != "完成" {
-            guard remote.state == "上传中", remote.offset >= 0, remote.offset <= item.size else { throw TransferError(message: "电脑任务已取消或不可继续，请取消后重发") }
+            guard remote.state == "上传中", remote.offset >= 0, remote.offset <= item.size else { throw TransferError(message: "电脑任务已取消或不可继续，请取消后重发", terminalTask: true) }
             let h = try FileHandle(forReadingFrom: disk.url(item.filename)); defer { try? h.close() }
             try h.seek(toOffset: UInt64(remote.offset))
             while remote.offset < item.size {
@@ -238,7 +324,7 @@ final class DiskStore {
     func settingsChanged() { UserDefaults.standard.set(phoneName, forKey: "phoneName"); UserDefaults.standard.set(autoReceive, forKey: "autoReceive") }
     func renameComputer(_ name: String) { guard var p = peer else { return }; p.name = name; do { try CredentialStore.save(p); peer = p } catch { self.error = error.localizedDescription } }
     func disconnect() {
-        loop?.cancel(); pairing?.cancel(); discovery.stop(); transport = nil; connected = false
+        loop?.cancel(); heartbeat?.cancel(); pairing?.cancel(); discovery.stop(); transport = nil; connected = false
         do { try CredentialStore.clear(); peer = nil; status = "未连接电脑" } catch { self.error = error.localizedDescription }
     }
     func fileURL(_ receipt: Receipt) -> URL? { receipt.filename.flatMap { disk?.url($0) } }

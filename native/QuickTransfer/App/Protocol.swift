@@ -4,6 +4,8 @@ import Security
 
 struct TransferError: LocalizedError {
     let message: String
+    var statusCode: Int? = nil
+    var terminalTask: Bool = false
     var errorDescription: String? { message }
 }
 struct Peer: Codable, Equatable {
@@ -44,6 +46,8 @@ struct Receipt: Codable, Identifiable {
     var text: String?
     var date: Date
     var acknowledged: Bool
+    var needsRecovery: Bool? = nil
+    var retryStoppedReason: String? = nil
 }
 struct Outgoing: Codable, Identifiable {
     var id: String = UUID().uuidString
@@ -56,6 +60,27 @@ struct Outgoing: Codable, Identifiable {
     var status: String = "等待连接"
     var progress: Double = 0
     var cancelled: Bool = false
+    var cancelConfirmed: Bool? = nil
+    var retryStoppedReason: String? = nil
+}
+enum QueuePolicy {
+    static func isGlobal(_ error: Error) -> Bool {
+        if error is CancellationError || error is URLError { return true }
+        guard let code = (error as? TransferError)?.statusCode else { return false }
+        return code == 401 || code == 403 || code >= 500
+    }
+    static func isTerminal(_ error: Error) -> Bool {
+        guard let e = error as? TransferError else { return false }
+        return e.terminalTask || e.statusCode == 404 || (e.statusCode == 400 && e.message.contains("任务不存在"))
+    }
+    // Global connection/auth failures stop the pass; an individual task failure cannot starve later tasks.
+    @MainActor static func run<Item>(_ items: [Item], operation: (Item) async throws -> Void, failed: (Item, Error) throws -> Void) async throws {
+        for item in items {
+            try Task.checkCancellation()
+            do { try await operation(item) }
+            catch { if isGlobal(error) { throw error }; try failed(item, error) }
+        }
+    }
 }
 enum FilePolicy {
     static func safeName(_ raw: String) -> String {
@@ -146,7 +171,7 @@ final class Transport {
     static func check(_ code: Int, data: Data = Data()) throws {
         guard (200...299).contains(code) else {
             let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: String]
-            throw TransferError(message: object?["error"] ?? (code == 401 ? "配对授权已失效，请在设置中重新连接" : "电脑返回错误 \(code)"))
+            throw TransferError(message: object?["error"] ?? (code == 401 ? "配对授权已失效，请在设置中重新连接" : "电脑返回错误 \(code)"), statusCode: code)
         }
     }
     func get<T: Decodable>(_ type: T.Type, _ path: String, method: String = "GET", json: [String: Any]? = nil, query: [String: String] = [:]) async throws -> T {
